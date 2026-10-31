@@ -268,16 +268,20 @@ const sampleSymbol = (img: HTMLImageElement, count: number, width: number) =>
 
 /** O nome WOLTEK na fonte do site, espaçado como no logotipo. */
 const sampleWord = (count: number, width: number) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 900;
-    canvas.height = 200;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#fff';
-    ctx.font = 'italic 700 150px Montserrat, Arial, sans-serif';
-    ctx.textBaseline = 'middle';
+    const font = 'italic 700 150px Montserrat, Arial, sans-serif';
     const letters = [...'WOLTEK'];
     const gap = 46;
+    const canvas = document.createElement('canvas');
+    let ctx = canvas.getContext('2d')!;
+    ctx.font = font;
     const total = letters.reduce((sum, ch) => sum + ctx.measureText(ch).width, 0) + gap * (letters.length - 1);
+    // A largura acompanha o texto, com folga para a inclinação do itálico não cortar a última letra.
+    canvas.width = Math.ceil(total + 80);
+    canvas.height = 200;
+    ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#fff';
+    ctx.font = font;
+    ctx.textBaseline = 'middle';
     let x = (canvas.width - total) / 2;
     for (const ch of letters) {
         ctx.fillText(ch, x, canvas.height / 2);
