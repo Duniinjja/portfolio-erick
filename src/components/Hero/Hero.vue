@@ -3,7 +3,7 @@ import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
 import { animate, splitText, stagger } from 'animejs';
 import Icon from '../Icon/Icon.vue';
 import HeroCounters from '../HeroCounters/HeroCounters.vue';
-import photoUrl from '../../assets/erick-foto.png';
+import photoUrl from '../../assets/erick-foto.webp';
 import { contact, heroWords, socials } from '../../data/portfolio';
 import { reducedMotion } from '../../motion';
 

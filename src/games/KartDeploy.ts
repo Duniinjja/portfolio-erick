@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import kartUrl from '../assets/erickcarrinho.png';
+import kartUrl from '../assets/kart.webp';
 import { ArcadeScene, COLORS, HEIGHT, SANS, WIDTH } from './ArcadeScene';
 import { sfx } from './sfx';
 

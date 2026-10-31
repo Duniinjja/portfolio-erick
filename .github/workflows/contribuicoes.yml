@@ -1,0 +1,38 @@
+name: Atualizar contribuições
+
+# Todo dia às 6h (horário de Brasília) atualiza o mapa de atividade do portfólio.
+# Precisa do segredo CONTRIB_TOKEN: um token pessoal do GitHub com escopo read:user.
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Buscar contribuições
+        env:
+          GH_TOKEN: ${{ secrets.CONTRIB_TOKEN }}
+        run: node scripts/update-contributions.mjs
+
+      - name: Salvar se mudou
+        run: |
+          if git diff --quiet src/data/contributions.json; then
+            echo "Nada novo hoje."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/contributions.json
+          git commit -m ":chart_with_upwards_trend: atualiza contribuições"
+          git push

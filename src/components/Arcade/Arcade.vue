@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { animate, stagger } from 'animejs';
 import Icon from '../Icon/Icon.vue';
-import kartUrl from '../../assets/erickcarrinho.png';
+import kartUrl from '../../assets/kart.webp';
 import { onceVisible, reducedMotion } from '../../motion';
 import type { GameController, GameId } from '../../games';
 

@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import * as THREE from 'three';
 import { animate } from 'animejs';
-import photoUrl from '../../assets/erick-foto.png';
+import photoUrl from '../../assets/erick-foto.webp';
 import { reducedMotion } from '../../motion';
 
 /** Elemento que marca onde o rosto fica; o canvas cobre o pai inteiro. */
