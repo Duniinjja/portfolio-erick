@@ -104,11 +104,14 @@ const seeded = (seed: number) => () => {
     return seed / 233280;
 };
 
+/** Altura do topo cortado (elipse dos anéis) em relação à largura do tronco. */
+const TRUNK_TILT = 0.1;
+
 /** Tronco de árvore centrado na origem: casca com veios, nó, anéis no topo e um galho com folha. */
 const drawTrunk = (ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) => {
     const rnd = seeded(Math.floor(seed) + 1);
     const r = w / 2;
-    const ry = w * 0.16;
+    const ry = w * TRUNK_TILT;
     const top = -h / 2;
     const bottom = h / 2;
 
@@ -151,9 +154,9 @@ const drawTrunk = (ctx: CanvasRenderingContext2D, w: number, h: number, seed: nu
         }
         ctx.stroke();
     }
-    // Nó na madeira.
-    const kx = (rnd() - 0.5) * r * 0.8;
-    const ky = top + h * (0.45 + rnd() * 0.25);
+    // Nó na madeira, na lateral de baixo (longe da cara).
+    const kx = (rnd() < 0.5 ? -1 : 1) * r * (0.45 + rnd() * 0.15);
+    const ky = top + h * (0.66 + rnd() * 0.12);
     ctx.fillStyle = '#3a2410';
     ctx.beginPath();
     ctx.ellipse(kx, ky, r * 0.16, r * 0.24, 0, 0, Math.PI * 2);
@@ -167,19 +170,20 @@ const drawTrunk = (ctx: CanvasRenderingContext2D, w: number, h: number, seed: nu
 
     // Galho com folha.
     ctx.save();
-    ctx.translate(r * 0.8, top + h * 0.28);
+    const b = Math.min(w, 300); // o galho não cresce junto com um tronco largo
+    ctx.translate(r * 0.85, top + Math.min(h * 0.28, b * 0.9));
     ctx.rotate(-0.7);
     ctx.fillStyle = '#6a401f';
-    ctx.fillRect(0, -w * 0.06, w * 0.38, w * 0.12);
+    ctx.fillRect(0, -b * 0.06, b * 0.38, b * 0.12);
     ctx.fillStyle = '#5fae4a';
     ctx.beginPath();
-    ctx.ellipse(w * 0.46, 0, w * 0.13, w * 0.07, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(b * 0.46, 0, b * 0.13, b * 0.07, 0.3, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#3d7a2e';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(w * 0.35, 0);
-    ctx.lineTo(w * 0.57, w * 0.03);
+    ctx.moveTo(b * 0.35, 0);
+    ctx.lineTo(b * 0.57, b * 0.03);
     ctx.stroke();
     ctx.restore();
 
@@ -204,6 +208,106 @@ const drawTrunk = (ctx: CanvasRenderingContext2D, w: number, h: number, seed: nu
         ctx.ellipse(0, top, r * f, ry * f, 0, 0, Math.PI * 2);
         ctx.stroke();
     }
+};
+
+interface TrunkFace {
+    eyeL: Point;
+    eyeR: Point;
+    mouth: Point;
+    blinkL: number;
+    blinkR: number;
+    jaw: number;
+    smile: number;
+}
+
+/** Cara do tronco: olhos e boca no lugar dos da pessoa, piscando, sorrindo e abrindo a boca junto com ela. */
+const drawTrunkFace = (ctx: CanvasRenderingContext2D, f: TrunkFace) => {
+    const d = Math.max(24, Math.hypot(f.eyeR.x - f.eyeL.x, f.eyeR.y - f.eyeL.y));
+    const s = d * 0.34;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const [eye, other, blink] of [
+        [f.eyeL, f.eyeR, f.blinkL],
+        [f.eyeR, f.eyeL, f.blinkR],
+    ] as const) {
+        // Lado do outro olho: as pupilas olham levemente para o centro.
+        const side = other.x >= eye.x ? 1 : -1;
+        const cx = eye.x;
+        const cy = eye.y + s * 0.45;
+        // Buraco na casca.
+        ctx.fillStyle = '#2a170a';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, s * 1.22, s * 1.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const open = Math.max(0, 1 - blink * 1.25);
+        if (open < 0.18) {
+            // Olho fechado, feliz.
+            ctx.strokeStyle = '#f6ead6';
+            ctx.lineWidth = s * 0.28;
+            ctx.beginPath();
+            ctx.arc(cx, cy + s * 0.25, s * 0.7, Math.PI * 1.15, Math.PI * 1.85);
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = '#fbf6ec';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, s, s * 1.1 * open, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.save();
+            ctx.clip();
+            ctx.fillStyle = '#140b04';
+            ctx.beginPath();
+            ctx.arc(cx + side * s * 0.15, cy + s * 0.08, s * 0.55, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(cx + side * s * 0.15 - s * 0.2, cy - s * 0.18, s * 0.17, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        // Sobrancelha de casca, sobe quando a boca abre.
+        ctx.strokeStyle = '#3a2410';
+        ctx.lineWidth = s * 0.32;
+        const lift = s * (1.55 + f.jaw * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(cx - side * s * 0.9, cy - lift + s * 0.15);
+        ctx.quadraticCurveTo(cx, cy - lift - s * 0.35, cx + side * s * 0.9, cy - lift + s * 0.05);
+        ctx.stroke();
+    }
+
+    // Bochechas.
+    const mx = f.mouth.x;
+    const my = f.mouth.y + s * 0.3;
+    const mw = d * (0.95 + f.smile * 0.35);
+    ctx.fillStyle = 'rgba(240, 110, 90, 0.35)';
+    for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(mx + side * mw * 0.78, my - s * 0.55, s * 0.6, s * 0.38, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Boca: sorriso sempre; abre junto com a da pessoa.
+    const curve = mw * (0.22 + f.smile * 0.3);
+    const drop = mw * f.jaw * 0.75;
+    ctx.beginPath();
+    ctx.moveTo(mx - mw / 2, my);
+    ctx.quadraticCurveTo(mx, my + curve * 0.35, mx + mw / 2, my);
+    ctx.quadraticCurveTo(mx, my + curve + drop, mx - mw / 2, my);
+    ctx.closePath();
+    ctx.fillStyle = '#2a0f08';
+    ctx.fill();
+    if (drop + curve > mw * 0.3) {
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#e0626a';
+        ctx.beginPath();
+        ctx.ellipse(mx, my + curve * 0.6 + drop * 0.9, mw * 0.26, mw * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+    ctx.strokeStyle = '#1e1208';
+    ctx.lineWidth = s * 0.26;
+    ctx.stroke();
 };
 
 const GESTURES: GestureId[] = ['Open_Palm', 'Victory', 'Closed_Fist', 'Pointing_Up', 'ILoveYou', 'Thumb_Up', 'Thumb_Down', 'Jutsu'];
@@ -306,6 +410,8 @@ export class Mirror {
     // Pontos do rosto na tela, para os efeitos das reações saírem do lugar certo.
     private facePts: { eyeL: Point; eyeR: Point; mouth: Point; top: Point } | null = null;
     private lastZ = 0;
+    // Expressão suavizada, para a cara do tronco imitar a pessoa.
+    private expr = { blinkL: 0, blinkR: 0, jaw: 0, smile: 0 };
 
     private moodMeter = new MoodMeter();
     private lazyMeter = new LazyMeter();
@@ -503,6 +609,12 @@ export class Mirror {
                 this.facePts = { eyeL: at(386), eyeR: at(159), mouth: at(13), top: at(10) };
 
                 const blend = toBlend(result.faceBlendshapes[0]?.categories);
+                const e = this.expr;
+                const follow = (from: number, to: number) => from + (to - from) * 0.5;
+                e.blinkL = follow(e.blinkL, blend.eyeBlinkLeft ?? 0);
+                e.blinkR = follow(e.blinkR, blend.eyeBlinkRight ?? 0);
+                e.jaw = follow(e.jaw, blend.jawOpen ?? 0);
+                e.smile = follow(e.smile, ((blend.mouthSmileLeft ?? 0) + (blend.mouthSmileRight ?? 0)) / 2);
                 this.moodMeter.update(blend);
                 const event = this.lazyMeter.update(blend, t);
                 if (event && this.mode === 'preguica') {
@@ -773,18 +885,22 @@ export class Mirror {
         }
     }
 
-    /** Onde a pessoa está: um retângulo de cabeça e tronco a partir do rosto (ou o centro, sem rosto). */
+    /**
+     * Onde a pessoa está: do alto da cabeça até o pé da tela, na largura dos ombros (cerca de 3 rostos), para o
+     * tronco cobrir o corpo inteiro. Sem rosto, o centro da tela.
+     */
     private personSpot() {
         const box = this.faceBox;
+        const bottom = this.height + 40;
         if (box) {
-            // Do alto da cabeça para baixo, sem passar da tela; a largura acompanha a altura (tronco, não tábua).
-            const h = Math.min(box.h * 2.3, this.height * 0.8);
-            const w = Math.min(box.w * 1.3, h * 0.55);
-            const y = Math.min(box.y - box.h * 0.25 + h / 2, this.height - h / 2 - 10);
-            return { x: box.x + box.w / 2, y: Math.max(h / 2 + 10, y), w, h };
+            const w = Math.min(box.w * 3.2, this.width * 0.96);
+            // A borda de baixo dos anéis fica na testa, acima das sobrancelhas.
+            const ry = w * TRUNK_TILT;
+            const top = Math.max(ry + 6, box.y + box.h * 0.08 - ry);
+            return { x: box.x + box.w / 2, y: (top + bottom) / 2, w, h: bottom - top };
         }
-        const h = this.height * 0.7;
-        return { x: this.width / 2, y: this.height * 0.55, w: h * 0.42, h };
+        const top = this.height * 0.14;
+        return { x: this.width / 2, y: (top + bottom) / 2, w: Math.min(this.height * 0.6, this.width * 0.9), h: bottom - top };
     }
 
     /** Nuvem de fumaça do jutsu, em volta da pessoa. */
@@ -834,9 +950,25 @@ export class Mirror {
         const { ctx } = this;
         ctx.save();
         ctx.translate(spot.x, spot.y);
-        ctx.rotate(Math.sin(now / 260) * 0.03);
+        ctx.rotate(Math.sin(now / 260) * 0.015);
         ctx.scale(pop, pop);
         drawTrunk(ctx, spot.w, spot.h, this.logSeed);
+
+        // A cara fica onde está o rosto da pessoa; sem rosto, no alto do tronco.
+        const pts = this.facePts;
+        const local = (p: Point) => ({ x: p.x - spot.x, y: p.y - spot.y });
+        const eyeY = -spot.h / 2 + spot.w * 0.42;
+        const gap = spot.w * 0.15;
+        const blink = now % 4200 < 130 ? 1 : 0; // pisca sozinho de vez em quando
+        drawTrunkFace(ctx, {
+            eyeL: pts ? local(pts.eyeL) : { x: -gap, y: eyeY },
+            eyeR: pts ? local(pts.eyeR) : { x: gap, y: eyeY },
+            mouth: pts ? local(pts.mouth) : { x: 0, y: eyeY + gap * 1.6 },
+            blinkL: Math.max(this.expr.blinkL, blink),
+            blinkR: Math.max(this.expr.blinkR, blink),
+            jaw: pts ? this.expr.jaw : 0,
+            smile: pts ? this.expr.smile : 0.4,
+        });
         ctx.restore();
     }
 
