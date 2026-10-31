@@ -20,6 +20,7 @@ export const navItems = [
     { id: 'projetos', label: 'Projetos' },
     { id: 'experiencia', label: 'Experiência' },
     { id: 'arcade', label: 'Arcade' },
+    { id: 'lab', label: 'Lab' },
     { id: 'contato', label: 'Contato' },
 ];
 

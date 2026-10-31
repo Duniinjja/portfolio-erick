@@ -78,6 +78,8 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll));
     a {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
+        min-width: 44px;
         min-height: 44px;
         font-size: 12px;
         font-weight: 700;

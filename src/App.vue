@@ -11,6 +11,7 @@ import Stack from './components/Stack/Stack.vue';
 import Projects from './components/Projects/Projects.vue';
 import Experience from './components/Experience/Experience.vue';
 import Arcade from './components/Arcade/Arcade.vue';
+import Lab from './components/Lab/Lab.vue';
 import Contact from './components/Contact/Contact.vue';
 import Footer from './components/Footer/Footer.vue';
 import { setupCounters, setupReveals } from './motion';
@@ -32,6 +33,7 @@ onMounted(() => {
         <Projects />
         <Experience />
         <Arcade />
+        <Lab />
         <Contact />
     </main>
     <Footer />
