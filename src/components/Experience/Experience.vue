@@ -1,150 +1,222 @@
-<script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+<script setup lang="ts">
 import { experienceList } from '../../helper/experienceList';
+import { capabilities } from '../../data/portfolio';
 
-const { handleChooseExpDetails } = defineProps<{ handleChooseExpDetails: (choosed: 1 | 2 | 3) => void }>();
-const titleTyped = ref('');
-const titleString = '> Experiencia';
-
-const handleTitleType = () => {
-    for (let i = titleTyped.value.length; i < titleString.length; i++) {
-        setTimeout(() => {
-            titleTyped.value += titleString[i];
-        }, i * 100);
-    }
+const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const period = (date: string) => {
+    if (date === 'Atual') return 'Presente';
+    const [, month, year] = date.split('/');
+    return `${months[Number(month) - 1]} ${year}`;
 };
 
-onMounted(() => {
-    const observerCallback = (entries: Array<IntersectionObserverEntry>) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                if (entry.target.classList.contains('titleTypedExperience')) handleTitleType();
-
-                if (entry.target.classList.contains('expItem1')) {
-                    const expItem1 = window.document.querySelector('.expItem1') as any;
-                    expItem1?.classList.add('expItem1Animate');
-
-                    observer.unobserve(expItem1);
-                }
-
-                if (entry.target.classList.contains('expItem2')) {
-                    const expItem2 = window.document.querySelector('.expItem2') as any;
-                    expItem2?.classList.add('expItem2Animate');
-
-                    observer.unobserve(expItem2);
-                }
-
-                if (entry.target.classList.contains('expItem3')) {
-                    const expItem3 = window.document.querySelector('.expItem3') as any;
-                    expItem3?.classList.add('expItem3Animate');
-
-                    observer.unobserve(expItem3);
-                }
-
-                if (entry.target.classList.contains('expItem1Mobile')) {
-                    const expItem1Mobile = window.document.querySelector('.expItem1Mobile') as any;
-                    expItem1Mobile?.classList.add('expItemMobileAnimate');
-
-                    observer.unobserve(expItem1Mobile);
-                }
-
-                if (entry.target.classList.contains('expItem2Mobile')) {
-                    const expItem2Mobile = window.document.querySelector('.expItem2Mobile') as any;
-                    expItem2Mobile?.classList.add('expItemMobileAnimate');
-
-                    observer.unobserve(expItem2Mobile);
-                }
-
-                if (entry.target.classList.contains('expItem3Mobile')) {
-                    const expItem3Mobile = window.document.querySelector('.expItem3Mobile') as any;
-                    expItem3Mobile?.classList.add('expItemMobileAnimate');
-
-                    observer.unobserve(expItem3Mobile);
-                }
-            };
-        })
-    };
-
-    const observer = new IntersectionObserver(observerCallback);
-    const classes = ['.titleTypedExperience', '.expItem1', '.expItem2', 'expItem3', '.expItem1Mobile', '.expItem2Mobile', '.expItem3Mobile'];
-
-    classes.forEach(className => {
-        const element = window.document.querySelector(className);
-        if (element) observer.observe(element);
-    })
-});
+const jobs = [...experienceList].reverse();
 </script>
+
 <template>
-    <div class="experienceContainer">
-        <h1 class="titleTypedExperience">{{ titleTyped }}</h1>
+    <section id="experiencia" class="experience" aria-labelledby="experiencia-titulo">
+        <div class="container">
+            <header class="section-head" data-reveal-group>
+                <span class="section-kicker" data-reveal>Experiência</span>
+                <h2 id="experiencia-titulo" data-split>Minha trajetória.</h2>
+                <p data-reveal>Da análise de dados no financeiro à engenharia de sistemas completos.</p>
+            </header>
 
-        <hr class="timelineExp" />
-        <ul class="experienceList">
-            <li class="experienceItem expItem1">
-                <i class="pi pi-circle-fill checkpoint" @click="handleChooseExpDetails(1)"></i>
-                <span>
-                    <h3>{{ experienceList[0]?.position }}</h3>
-                    <h3>{{ experienceList[0]?.startAt }} ~ {{ experienceList[0]?.endAt }}</h3>
-                    <h3>{{ experienceList[0]?.companyName }}</h3>
-                    <b @click="handleChooseExpDetails(1)">Ver detalhes</b>
-                </span>
-            </li>
+            <div class="experience__grid">
+                <div>
+                    <h3 class="experience__subtitle">Experiência profissional.</h3>
+                    <ol class="timeline">
+                        <li v-for="job in jobs" :key="job.companyName" class="timeline__item" data-reveal-group>
+                            <span class="timeline__dot" aria-hidden="true"></span>
+                            <div class="timeline__body">
+                                <p class="timeline__date" data-reveal>{{ period(job.startAt) }} – {{ period(job.endAt) }}</p>
+                                <div class="timeline__head" data-reveal>
+                                    <img :src="`/${job.companyImage}`" :alt="`Logo ${job.companyName}`" width="48" height="48" loading="lazy" />
+                                    <div>
+                                        <h4>{{ job.companyName }}</h4>
+                                        <p class="timeline__role">{{ job.position }} · {{ job.locale }}</p>
+                                    </div>
+                                </div>
+                                <p class="timeline__text" data-reveal>{{ job.description }}</p>
+                                <ul v-if="job.highlights" class="timeline__highlights">
+                                    <li v-for="item in job.highlights" :key="item" data-reveal>{{ item }}</li>
+                                </ul>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
 
-            <li class="experienceItem expItem2">
-                <i class="pi pi-circle-fill checkpoint" @click="handleChooseExpDetails(2)"></i>
-                <span>
-                    <h3>{{ experienceList[1]?.position }}</h3>
-                    <h3>{{ experienceList[1]?.startAt }} ~ {{ experienceList[1]?.endAt }}</h3>
-                    <h3>{{ experienceList[1]?.companyName }}</h3>
-                    <b @click="handleChooseExpDetails(2)">Ver detalhes</b>
-                </span>
-            </li>
-
-            <li class="experienceItem expItem3">
-                <i class="pi pi-circle-fill checkpoint" @click="handleChooseExpDetails(3)"></i>
-                <span>
-                    <h3>{{ experienceList[2]?.position }}</h3>
-                    <h3>{{ experienceList[2]?.startAt }} ~ {{ experienceList[2]?.endAt }}</h3>
-                    <h3>{{ experienceList[2]?.companyName }}</h3>
-                    <b @click="handleChooseExpDetails(3)">Ver detalhes</b>
-                </span>
-            </li>
-        </ul>
-
-        <!-- Mobile Version:  -->
-        <ul class="experienceListMobile">
-            <li class="experienceItem expItem1Mobile">
-                <hr class="experienceTrackItem" />
-                <i class="pi pi-circle-fill checkpoint" @click="handleChooseExpDetails(1)"></i>
-                <span>
-                    <h3>{{ experienceList[0]?.position }}</h3>
-                    <h3>{{ experienceList[0]?.startAt }} ~ {{ experienceList[0]?.endAt }}</h3>
-                    <h3>{{ experienceList[0]?.companyName }}</h3>
-                    <b @click="handleChooseExpDetails(1)">Ver detalhes</b>
-                </span>
-            </li>
-
-            <li class="experienceItem expItem2Mobile">
-                <hr class="experienceTrackItem" />
-                <i class="pi pi-circle-fill checkpoint" @click="handleChooseExpDetails(2)"></i>
-                <span>
-                    <h3>{{ experienceList[1]?.position }}</h3>
-                    <h3>{{ experienceList[1]?.startAt }} ~ {{ experienceList[1]?.endAt }}</h3>
-                    <h3>{{ experienceList[1]?.companyName }}</h3>
-                    <b @click="handleChooseExpDetails(2)">Ver detalhes</b>
-                </span>
-            </li>
-
-            <li class="experienceItem expItem3Mobile">
-                <i class="pi pi-circle-fill checkpoint" @click="handleChooseExpDetails(3)"></i>
-                <span>
-                    <h3>{{ experienceList[2]?.position }}</h3>
-                    <h3>{{ experienceList[2]?.startAt }} ~ {{ experienceList[2]?.endAt }}</h3>
-                    <h3>{{ experienceList[2]?.companyName }}</h3>
-                    <b @click="handleChooseExpDetails(3)">Ver detalhes</b>
-                </span>
-            </li>
-        </ul>
-    </div>
+                <div data-reveal-group>
+                    <h3 class="experience__subtitle" data-reveal>O que eu entrego.</h3>
+                    <div class="capabilities">
+                        <article v-for="item in capabilities" :key="item.title" class="capability" data-reveal>
+                            <h4>{{ item.title }}</h4>
+                            <p>{{ item.text }}</p>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </template>
-<style lang="scss" scoped src="./experience.style.scss" />
+
+<style scoped lang="scss">
+.experience {
+    padding-block: var(--section);
+    background: var(--light);
+}
+
+.experience__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: clamp(40px, 7vw, 96px);
+}
+
+.experience__subtitle {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 32px;
+}
+
+.timeline {
+    position: relative;
+    list-style: none;
+
+    &::before {
+        content: '';
+        position: absolute;
+        left: 7px;
+        top: 6px;
+        bottom: 0;
+        width: 1px;
+        background: #d6d6d3;
+    }
+}
+
+.timeline__item {
+    position: relative;
+    padding-left: 44px;
+    padding-bottom: 48px;
+
+    &:last-child {
+        padding-bottom: 0;
+    }
+}
+
+.timeline__dot {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--black);
+    box-shadow: 0 0 0 5px #e4e4e1;
+}
+
+.timeline__item:first-child .timeline__dot {
+    background: var(--yellow);
+    box-shadow: 0 0 0 5px rgb(242 194 0 / 0.3);
+    animation: pulse 2.2s ease-out infinite;
+}
+
+@keyframes pulse {
+    50% {
+        box-shadow: 0 0 0 10px rgb(242 194 0 / 0.08);
+    }
+}
+
+.timeline__date {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.timeline__head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 10px;
+
+    img {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        padding: 4px;
+        background: var(--white);
+    }
+
+    h4 {
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+}
+
+.timeline__role {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.timeline__text {
+    margin-top: 14px;
+    color: var(--muted);
+}
+
+.timeline__highlights {
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+
+    li {
+        position: relative;
+        padding-left: 22px;
+        font-size: 15px;
+
+        &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.75em;
+            width: 10px;
+            height: 2px;
+            background: var(--yellow);
+        }
+    }
+}
+
+.capabilities {
+    display: grid;
+    gap: 16px;
+}
+
+.capability {
+    padding: 24px 26px;
+    background: var(--white);
+    border-left: 3px solid var(--yellow);
+    transition: transform 0.3s var(--ease-out);
+
+    &:hover {
+        transform: translateX(6px);
+    }
+
+    h4 {
+        font-family: var(--serif);
+        font-size: 18px;
+        margin-bottom: 6px;
+    }
+
+    p {
+        color: var(--muted);
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 860px) {
+    .experience__grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+</style>

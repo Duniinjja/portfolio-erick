@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# relatórios de verificação de design
+.taste-skill
+.woltek-audit

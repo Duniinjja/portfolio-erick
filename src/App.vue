@@ -1,37 +1,38 @@
 <script setup lang="ts">
 import './global.scss';
-import 'primeicons/primeicons.css';
+import { onMounted } from 'vue';
 
 import Navbar from './components/Navbar/Navbar.vue';
-import Introduction from './components/Introduction/Introduction.vue';
+import Hero from './components/Hero/Hero.vue';
 import About from './components/About/About.vue';
+import Woltek from './components/Woltek/Woltek.vue';
+import Activity from './components/Activity/Activity.vue';
+import Stack from './components/Stack/Stack.vue';
 import Projects from './components/Projects/Projects.vue';
-import Skills from './components/Skills/Skills.vue';
 import Experience from './components/Experience/Experience.vue';
-import ExperienceDetails from './components/ExperienceDetails/ExperienceDetails.vue';
+import Arcade from './components/Arcade/Arcade.vue';
 import Contact from './components/Contact/Contact.vue';
 import Footer from './components/Footer/Footer.vue';
-import { ref } from 'vue';
+import { setupCounters, setupReveals } from './motion';
 
-const choosedExpDetails = ref<0 | 1 | 2 | 3>(0);
-
-const handleChooseExpDetails = (choosed: 1 | 2 | 3) => {
-    choosedExpDetails.value = choosed;
-};
-
-const handleCloseExpDetails = () => {
-    choosedExpDetails.value = 0;
-};
-
+onMounted(() => {
+    setupReveals();
+    setupCounters();
+});
 </script>
+
 <template>
     <Navbar />
-    <Introduction />
-    <About />
-    <Projects />
-    <Skills />
-    <Experience :handle-choose-exp-details="handleChooseExpDetails" />
-    <ExperienceDetails v-if="choosedExpDetails > 0" :choosed-experience="choosedExpDetails" :handle-close-exp-details="handleCloseExpDetails" />
-    <Contact />
+    <main>
+        <Hero />
+        <About />
+        <Woltek />
+        <Activity />
+        <Stack />
+        <Projects />
+        <Experience />
+        <Arcade />
+        <Contact />
+    </main>
     <Footer />
 </template>
