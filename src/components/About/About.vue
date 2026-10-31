@@ -2,31 +2,47 @@
 import { onMounted, ref } from 'vue';
 import { animate, stagger } from 'animejs';
 import Icon from '../Icon/Icon.vue';
-import { contact, skillLevels } from '../../data/portfolio';
+import { contact, projects, skillAreas } from '../../data/portfolio';
 import { reducedMotion } from '../../motion';
 
-const bars = ref<HTMLElement | null>(null);
+const SHOWN = 4;
 
-/** As barras crescem até o nível de cada habilidade quando entram na tela. */
+/** Cada área lista os projetos do portfólio que a usam: o stack começa com um dos termos ou o projeto é da categoria. */
+const areas = skillAreas.map((area) => {
+    const uses: readonly string[] = 'uses' in area ? area.uses : [];
+    const used = projects.filter(
+        (project) =>
+            ('category' in area && project.category === area.category) ||
+            project.stack.some((item) => uses.some((term) => item.startsWith(term))),
+    );
+    return {
+        ...area,
+        count: used.length,
+        shown: used.slice(0, SHOWN).map((project) => project.name),
+        more: Math.max(0, used.length - SHOWN),
+        also: 'also' in area ? area.also : [],
+    };
+});
+
+const list = ref<HTMLElement | null>(null);
+
+/** As etiquetas de projeto entram em cascata quando a lista aparece. */
 onMounted(() => {
-    const list = bars.value;
-    if (!list || reducedMotion()) return;
+    const el = list.value;
+    if (!el || reducedMotion()) return;
 
-    const fills = list.querySelectorAll<HTMLElement>('.skill__fill');
-    const tags = list.querySelectorAll<HTMLElement>('.skill__value');
-    fills.forEach((fill) => (fill.style.transform = 'scaleX(0)'));
+    const tags = el.querySelectorAll<HTMLElement>('.skill__tags li');
     tags.forEach((tag) => (tag.style.opacity = '0'));
 
     const observer = new IntersectionObserver(
         ([entry]) => {
             if (!entry?.isIntersecting) return;
             observer.disconnect();
-            animate(fills, { scaleX: [0, 1], duration: 1600, delay: stagger(120), ease: 'outExpo' });
-            animate(tags, { opacity: [0, 1], translateY: [6, 0], duration: 600, delay: stagger(120, { start: 700 }), ease: 'outQuad' });
+            animate(tags, { opacity: [0, 1], scale: [0.7, 1], duration: 500, delay: stagger(28, { start: 300 }), ease: 'outBack(2)' });
         },
-        { threshold: 0.35 },
+        { threshold: 0.25 },
     );
-    observer.observe(list);
+    observer.observe(el);
 });
 </script>
 
@@ -71,15 +87,25 @@ onMounted(() => {
 
                 <div class="about__skills" data-reveal-group>
                     <h3 data-reveal>Minhas principais habilidades.</h3>
-                    <ul ref="bars" class="skills">
-                        <li v-for="skill in skillLevels" :key="skill.name" class="skill" data-reveal>
-                            <span class="skill__name">{{ skill.name }}</span>
-                            <span class="skill__track" role="meter" :aria-valuenow="skill.level" aria-valuemin="0" aria-valuemax="100" :aria-label="skill.name">
-                                <span class="skill__fill" :style="{ width: `${skill.level}%` }"></span>
-                                <span class="skill__value" :style="{ left: `${skill.level}%` }">{{ skill.level }}%</span>
-                            </span>
+                    <p class="skills__note" data-reveal>Medidas pelos projetos em que cada uma está em uso, não por porcentagem.</p>
+                    <ul ref="list" class="skills">
+                        <li v-for="area in areas" :key="area.name" class="skill" data-reveal>
+                            <div class="skill__head">
+                                <span class="skill__name">{{ area.name }}</span>
+                                <span class="skill__count">
+                                    <strong :data-count="area.count">{{ area.count }}</strong>
+                                    {{ area.count === 1 ? 'projeto' : 'projetos' }}
+                                </span>
+                            </div>
+                            <p class="skill__text">{{ area.text }}</p>
+                            <ul class="skill__tags" :aria-label="`Onde uso ${area.name}`">
+                                <li v-for="name in area.shown" :key="name">{{ name }}</li>
+                                <li v-if="area.more" class="skill__more">+{{ area.more }}</li>
+                                <li v-for="place in area.also" :key="place" class="skill__also">{{ place }}</li>
+                            </ul>
                         </li>
                     </ul>
+                    <a class="skills__link" href="#projetos">Ver todos os projetos <Icon name="arrowUpRight" /></a>
                 </div>
             </div>
         </div>
@@ -125,66 +151,98 @@ h3 {
     margin-top: 36px;
 }
 
+.skills__note {
+    margin: -10px 0 26px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
 .skills {
     list-style: none;
     display: grid;
-    gap: 30px;
-    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.skill {
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.skill__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
 }
 
 .skill__name {
-    display: block;
-    margin-bottom: 10px;
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
-.skill__track {
-    position: relative;
-    display: block;
-    height: 6px;
-    background: var(--line);
+.skill__count {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+
+    strong {
+        color: var(--text);
+        font-family: var(--serif);
+        font-size: 22px;
+        font-variant-numeric: tabular-nums;
+    }
 }
 
-.skill__fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--text);
-    transform-origin: left;
+.skill__text {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 14px;
+}
 
-    &::after {
-        content: '';
-        position: absolute;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 34%;
+.skill__tags {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+
+    li {
+        padding: 4px 10px;
+        background: var(--text);
+        color: var(--white);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .skill__more {
         background: var(--yellow);
+        color: var(--black);
+    }
+
+    .skill__also {
+        background: transparent;
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px var(--line);
     }
 }
 
-.skill__value {
-    position: absolute;
-    bottom: calc(100% + 10px);
-    translate: calc(-100% + 2px) 0;
-    padding: 3px 7px;
-    background: var(--black);
-    color: var(--white);
-    font-size: 11px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.4;
-
-    &::after {
-        content: '';
-        position: absolute;
-        right: 6px;
-        top: 100%;
-        border: 5px solid transparent;
-        border-top-color: var(--black);
-    }
+.skills__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin-top: 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--yellow);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
 }
 
 @media (max-width: 860px) {

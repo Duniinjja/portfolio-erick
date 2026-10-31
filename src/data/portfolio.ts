@@ -96,15 +96,26 @@ export const facts = [
     { value: 26, label: 'Certificações', icon: 'coffee' },
 ] as const;
 
-/** Nível de cada área, em porcentagem. Ajuste para a sua autoavaliação. */
-export const skillLevels = [
-    { name: 'TypeScript e Node.js', level: 92 },
-    { name: 'React e Next.js', level: 90 },
-    { name: 'Python e Django', level: 88 },
-    { name: 'PostgreSQL, Prisma e modelagem', level: 88 },
-    { name: 'Docker, deploy e observabilidade', level: 84 },
-    { name: 'Dados, BI e automação', level: 92 },
-];
+interface SkillArea {
+    name: string;
+    text: string;
+    uses?: readonly string[];
+    category?: string;
+    also?: readonly string[];
+}
+
+/**
+ * Principais áreas, medidas pelo que já foi entregue e não por porcentagem.
+ * Os projetos de cada área saem da lista de projetos abaixo (pelo stack); `also` lista onde mais usei.
+ */
+export const skillAreas = [
+    { name: 'TypeScript e Node.js', text: 'APIs, filas e tempo real dos sistemas da operação.', uses: ['TypeScript', 'Node.js'] },
+    { name: 'React e Next.js', text: 'Painéis, portais e sites, do Kanban ao checkout.', uses: ['React', 'Next.js'] },
+    { name: 'Python e Django', text: 'Backend do SaaS financeiro, automações e scripts.', uses: ['Python', 'Django'], also: ['DOW Chemical', 'Alcoólicos Anônimos'] },
+    { name: 'PostgreSQL, Prisma e modelagem', text: 'Modelos multiempresa, migrações e consultas que aguentam produção.', uses: ['PostgreSQL', 'Prisma', 'MySQL'] },
+    { name: 'Docker, deploy e observabilidade', text: 'Tudo sobe em contêiner, com métricas e alertas.', uses: ['Docker', 'Coolify', 'Prometheus', 'Grafana'] },
+    { name: 'Dados, BI e automação', text: 'Onde comecei: relatórios, indicadores e rotinas automatizadas.', category: 'Finanças e dados', also: ['DOW Chemical', 'Alcoólicos Anônimos'] },
+] as const satisfies readonly SkillArea[];
 
 export const stackGroups = [
     { title: 'Frontend', items: ['React 19', 'Next.js 16', 'TypeScript', 'Vite', 'Tailwind', 'TanStack Query', 'Vue 3', 'three.js', 'anime.js'] },
