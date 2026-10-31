@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import * as THREE from 'three';
 import { animate } from 'animejs';
 import photoUrl from '../../assets/erick-foto.webp';
+import symbolUrl from '../../assets/woltek-simbolo.webp';
 import { reducedMotion } from '../../motion';
 
 /** Elemento que marca onde o rosto fica; o canvas cobre o pai inteiro. */
@@ -13,6 +14,7 @@ const canvasEl = ref<HTMLCanvasElement | null>(null);
 
 const faceVertex = /* glsl */ `
     uniform float uProgress;
+    uniform float uMix;
     uniform float uTime;
     uniform float uScatter;
     uniform float uScale;
@@ -20,13 +22,15 @@ const faceVertex = /* glsl */ `
     uniform float uCameraDist;
     uniform vec2 uMouse;
 
-    attribute vec3 aTarget;
+    attribute vec3 aTargetA;
+    attribute vec3 aTargetB;
+    attribute vec3 aColorA;
+    attribute vec3 aColorB;
+    attribute float aSizeA;
+    attribute float aSizeB;
     attribute vec3 aStart;
-    attribute vec3 aColor;
-    attribute float aSize;
     attribute float aDelay;
     attribute float aSeed;
-    attribute float aFade;
 
     varying vec3 vColor;
     varying float vAlpha;
@@ -37,7 +41,9 @@ const faceVertex = /* glsl */ `
 
     void main() {
         float p = easeInOut(clamp((uProgress - aDelay * 0.4) / 0.6, 0.0, 1.0));
-        vec3 target = aTarget * uScale;
+        // Troca de forma (rosto, símbolo, nome): cada ponto vai de A para B no seu tempo.
+        float m = smoothstep(0.0, 1.0, clamp((uMix - aDelay * 0.3) / 0.7, 0.0, 1.0));
+        vec3 target = mix(aTargetA, aTargetB, m) * uScale;
         vec3 pos = mix(aStart, target, p);
 
         pos.x += sin(uTime * 0.8 + aSeed * 6.2831) * 0.7;
@@ -50,11 +56,11 @@ const faceVertex = /* glsl */ `
 
         vec4 mv = modelViewMatrix * vec4(pos, 1.0);
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = aSize * uScale * uPixelRatio * (uCameraDist / -mv.z);
+        gl_PointSize = mix(aSizeA, aSizeB, m) * uScale * uPixelRatio * (uCameraDist / -mv.z);
 
         float twinkle = 0.85 + 0.15 * sin(uTime * 2.0 + aSeed * 40.0);
-        vColor = aColor * twinkle;
-        vAlpha = aFade * mix(0.25, 1.0, p) * (1.0 - uScatter * 0.85);
+        vColor = mix(aColorA, aColorB, m) * twinkle;
+        vAlpha = mix(0.25, 1.0, p) * (1.0 - uScatter * 0.85);
     }
 `;
 
@@ -81,10 +87,16 @@ interface FaceData {
     target: Float32Array;
     color: Float32Array;
     size: Float32Array;
-    fade: Float32Array;
     delay: Float32Array;
     count: number;
     rows: number;
+}
+
+/** Uma forma que as mesmas partículas podem assumir. */
+interface Shape {
+    target: Float32Array;
+    color: Float32Array;
+    size: Float32Array;
 }
 
 /** Lê a foto numa grade: cada pixel claro vira uma partícula com a cor e o relevo dele. */
@@ -100,7 +112,6 @@ const sampleFace = (img: HTMLImageElement, cols: number): FaceData => {
     const target: number[] = [];
     const color: number[] = [];
     const size: number[] = [];
-    const fade: number[] = [];
     const delay: number[] = [];
 
     for (let y = 0; y < rows; y++) {
@@ -129,19 +140,19 @@ const sampleFace = (img: HTMLImageElement, cols: number): FaceData => {
                 lum * 4,
             );
 
+            // Dissolve a parte de baixo (ombros) para o rosto flutuar.
+            const bottom = y / rows;
+            const fade = bottom > 0.64 ? Math.max(0, 1 - (bottom - 0.64) / 0.2) : 1;
+
             // Cor real do pixel (o tom), com os meios-tons clareados para o rosto aparecer no escuro.
             const light = Math.min(1, Math.pow(lum, 0.68) * 1.3);
             const peak = Math.max(r, g, b, 0.01);
             color.push(
-                ((r / peak) * 0.62 + 0.38) * light,
-                ((g / peak) * 0.62 + 0.38) * light,
-                ((b / peak) * 0.62 + 0.38) * light,
+                ((r / peak) * 0.62 + 0.38) * light * fade,
+                ((g / peak) * 0.62 + 0.38) * light * fade,
+                ((b / peak) * 0.62 + 0.38) * light * fade,
             );
             size.push(0.36 + light * 0.78);
-
-            // Dissolve a parte de baixo (ombros) para o rosto flutuar.
-            const bottom = y / rows;
-            fade.push(bottom > 0.64 ? Math.max(0, 1 - (bottom - 0.64) / 0.2) : 1);
 
             delay.push(Math.min(1, Math.hypot(nx, ny) * 0.55 + Math.random() * 0.3));
         }
@@ -151,11 +162,128 @@ const sampleFace = (img: HTMLImageElement, cols: number): FaceData => {
         target: new Float32Array(target),
         color: new Float32Array(color),
         size: new Float32Array(size),
-        fade: new Float32Array(fade),
         delay: new Float32Array(delay),
         count: size.length,
         rows,
     };
+};
+
+type Ink = (r: number, g: number, b: number, a: number) => number;
+type Tint = (r: number, g: number, b: number) => readonly [number, number, number];
+
+/** Lê o desenho numa grade de `cols` colunas e devolve as casas com tinta. */
+const inkGrid = (source: CanvasImageSource, srcWidth: number, srcHeight: number, cols: number, ink: Ink) => {
+    const rows = Math.max(1, Math.round((cols * srcHeight) / srcWidth));
+    const canvas = document.createElement('canvas');
+    canvas.width = cols;
+    canvas.height = rows;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, cols, rows);
+    const { data } = ctx.getImageData(0, 0, cols, rows);
+    const cells: { x: number; y: number; ink: number; rgb: [number, number, number] }[] = [];
+    for (let i = 0; i < cols * rows; i++) {
+        const rgb: [number, number, number] = [data[i * 4]! / 255, data[i * 4 + 1]! / 255, data[i * 4 + 2]! / 255];
+        const amount = Math.min(1, ink(...rgb, data[i * 4 + 3]! / 255));
+        if (amount > 0.18) cells.push({ x: i % cols, y: Math.floor(i / cols), ink: amount, rgb });
+    }
+    return { cells, cols, rows };
+};
+
+/**
+ * Desenha uma imagem com as partículas, em retícula como o rosto: uma partícula por casa com tinta, do tamanho
+ * da tinta. A grade é a mais fina que cabe em `count` partículas; as que sobram ficam invisíveis.
+ * O desenho ocupa `width` unidades (as mesmas da grade do rosto), centrado.
+ */
+const sampleInk = (
+    source: CanvasImageSource,
+    srcWidth: number,
+    srcHeight: number,
+    count: number,
+    width: number,
+    ink: Ink,
+    tint: Tint,
+): Shape => {
+    let low = 30;
+    let high = Math.min(srcWidth, 420);
+    let grid = inkGrid(source, srcWidth, srcHeight, low, ink);
+    while (high - low > 2) {
+        const mid = Math.round((low + high) / 2);
+        const attempt = inkGrid(source, srcWidth, srcHeight, mid, ink);
+        if (attempt.cells.length <= count) {
+            grid = attempt;
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    // Ordem embaralhada: na explosão, cada ponto do rosto vai para um lugar qualquer do desenho.
+    const cells = grid.cells;
+    for (let i = cells.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cells[i], cells[j]] = [cells[j]!, cells[i]!];
+    }
+
+    const unit = width / grid.cols;
+    const target = new Float32Array(count * 3);
+    const color = new Float32Array(count * 3);
+    const size = new Float32Array(count);
+    for (let n = 0; n < count; n++) {
+        const cell = cells[n % Math.max(1, cells.length)];
+        if (!cell) break;
+        target[n * 3] = (cell.x + 0.5 - grid.cols / 2 + (Math.random() - 0.5) * 0.3) * unit;
+        target[n * 3 + 1] = -(cell.y + 0.5 - grid.rows / 2 + (Math.random() - 0.5) * 0.3) * unit;
+        target[n * 3 + 2] = cell.ink * 3;
+        if (n >= cells.length) continue; // sobra: fica no lugar de outra, sem cor nem tamanho
+        const [r, g, b] = tint(...cell.rgb);
+        const light = 0.45 + cell.ink * 0.55;
+        color.set([r * light, g * light, b * light], n * 3);
+        size[n] = unit * (0.5 + cell.ink * 0.7);
+    }
+    return { target, color, size };
+};
+
+const CREAM = [0.96, 0.9, 0.78] as const;
+const GOLD = [1, 0.72, 0.22] as const;
+
+/** Símbolo da Woltek: o traço preto vira creme e o brilho laranja do centro vira dourado. */
+const sampleSymbol = (img: HTMLImageElement, count: number, width: number) =>
+    sampleInk(
+        img,
+        img.width,
+        img.height,
+        count,
+        width,
+        (r, g, b, a) => a * (1 - (0.299 * r + 0.587 * g + 0.114 * b)) * 1.3 + a * Math.max(0, r - b) * 1.6,
+        (r, _g, b) => {
+            const warm = Math.min(1, Math.max(0, (r - b) * 2.5));
+            return [
+                CREAM[0] + (GOLD[0] - CREAM[0]) * warm,
+                CREAM[1] + (GOLD[1] - CREAM[1]) * warm,
+                CREAM[2] + (GOLD[2] - CREAM[2]) * warm,
+            ];
+        },
+    );
+
+/** O nome WOLTEK na fonte do site, espaçado como no logotipo. */
+const sampleWord = (count: number, width: number) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 900;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'italic 700 150px Montserrat, Arial, sans-serif';
+    ctx.textBaseline = 'middle';
+    const letters = [...'WOLTEK'];
+    const gap = 46;
+    const total = letters.reduce((sum, ch) => sum + ctx.measureText(ch).width, 0) + gap * (letters.length - 1);
+    let x = (canvas.width - total) / 2;
+    for (const ch of letters) {
+        ctx.fillText(ch, x, canvas.height / 2);
+        x += ctx.measureText(ch).width + gap;
+    }
+    return sampleInk(canvas, canvas.width, canvas.height, count, width, (r, _g, _b, a) => a * r, () => CREAM);
 };
 
 let cleanup = () => {};
@@ -173,8 +301,10 @@ onMounted(async () => {
     }
 
     let img: HTMLImageElement;
+    let symbolImg: HTMLImageElement | null = null;
     try {
         img = await loadImage(photoUrl);
+        symbolImg = await loadImage(symbolUrl).catch(() => null);
     } catch {
         emit('fallback');
         return;
@@ -193,17 +323,29 @@ onMounted(async () => {
     const seed = new Float32Array(face.count).map(() => Math.random());
 
     const faceGeometry = new THREE.BufferGeometry();
+    const faceShape: Shape = { target: face.target, color: face.color, size: face.size };
+
+    // A e B são as duas formas da troca atual; começam ambas no rosto.
+    const targetA = new THREE.BufferAttribute(face.target.slice(), 3);
+    const targetB = new THREE.BufferAttribute(face.target.slice(), 3);
+    const colorA = new THREE.BufferAttribute(face.color.slice(), 3);
+    const colorB = new THREE.BufferAttribute(face.color.slice(), 3);
+    const sizeA = new THREE.BufferAttribute(face.size.slice(), 1);
+    const sizeB = new THREE.BufferAttribute(face.size.slice(), 1);
     faceGeometry.setAttribute('position', new THREE.BufferAttribute(face.target, 3));
-    faceGeometry.setAttribute('aTarget', new THREE.BufferAttribute(face.target, 3));
+    faceGeometry.setAttribute('aTargetA', targetA);
+    faceGeometry.setAttribute('aTargetB', targetB);
+    faceGeometry.setAttribute('aColorA', colorA);
+    faceGeometry.setAttribute('aColorB', colorB);
+    faceGeometry.setAttribute('aSizeA', sizeA);
+    faceGeometry.setAttribute('aSizeB', sizeB);
     faceGeometry.setAttribute('aStart', new THREE.BufferAttribute(start, 3));
-    faceGeometry.setAttribute('aColor', new THREE.BufferAttribute(face.color, 3));
-    faceGeometry.setAttribute('aSize', new THREE.BufferAttribute(face.size, 1));
-    faceGeometry.setAttribute('aFade', new THREE.BufferAttribute(face.fade, 1));
     faceGeometry.setAttribute('aDelay', new THREE.BufferAttribute(face.delay, 1));
     faceGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
 
     const uniforms = {
         uProgress: { value: still ? 1 : 0 },
+        uMix: { value: 1 },
         uTime: { value: 0 },
         uScatter: { value: 0 },
         uScale: { value: 1 },
@@ -371,19 +513,64 @@ onMounted(async () => {
         mouse.active = false;
     };
 
-    // Um clique no rosto espalha as partículas e ele se recompõe.
-    const onPointerDown = (event: PointerEvent) => {
-        if (!props.anchor) return;
+    // Formas da sequência do clique: o símbolo da Woltek e o nome, na escala da grade do rosto.
+    // São montadas no primeiro clique, quando a fonte do nome já carregou.
+    const faceWidth = face.rows * 0.82;
+    let story: Shape[] | null = null;
+    const buildStory = () => {
+        const shapes: Shape[] = [];
+        if (symbolImg) shapes.push(sampleSymbol(symbolImg, face.count, faceWidth));
+        shapes.push(sampleWord(face.count, faceWidth * (narrow ? 0.92 : 0.82)));
+        // Encaixa as formas no espaço do rosto (no desktop, um pouco à direita, longe do texto).
+        const lift = face.rows * (narrow ? 0.12 : 0.14);
+        const shift = narrow ? 0 : face.rows * 0.07;
+        for (const shape of shapes) {
+            for (let i = 0; i < shape.target.length; i += 3) {
+                shape.target[i]! += shift;
+                shape.target[i + 1]! += lift;
+            }
+        }
+        return shapes;
+    };
+
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    /** Explode a forma atual e recompõe as partículas na próxima. */
+    const morphTo = (shape: Shape) => {
+        targetA.copy(targetB);
+        colorA.copy(colorB);
+        sizeA.copy(sizeB);
+        targetB.set(shape.target);
+        colorB.set(shape.color);
+        sizeB.set(shape.size);
+        for (const attr of [targetA, targetB, colorA, colorB, sizeA, sizeB]) attr.needsUpdate = true;
+        uniforms.uMix.value = 0;
+
+        animate(uniforms.uProgress, {
+            value: [
+                { to: 0.4, duration: 550, ease: 'outCubic' },
+                { to: 1, duration: 1500, ease: 'inOutQuart' },
+            ],
+        });
+        return animate(uniforms.uMix, { value: 1, duration: 1300, delay: 450, ease: 'inOutSine' });
+    };
+
+    // Um clique no rosto: explode, vira o símbolo da Woltek, depois o nome, e volta ao rosto.
+    let playing = false;
+    const onPointerDown = async (event: PointerEvent) => {
+        if (!props.anchor || playing) return;
         const slot = props.anchor.getBoundingClientRect();
         const inside =
             event.clientX > slot.left && event.clientX < slot.right && event.clientY > slot.top && event.clientY < slot.bottom;
         if (!inside) return;
-        animate(uniforms.uProgress, {
-            value: [
-                { to: 0.35, duration: 600, ease: 'outCubic' },
-                { to: 1, duration: 1800, ease: 'inOutQuart' },
-            ],
-        });
+        playing = true;
+        story ??= buildStory();
+        for (const shape of story) {
+            await morphTo(shape);
+            await wait(1700);
+        }
+        await morphTo(faceShape);
+        playing = false;
     };
 
     let running = false;
