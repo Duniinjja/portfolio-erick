@@ -316,6 +316,30 @@ export class KartDeploy extends ArcadeScene {
                 this.track({ sprite: second, kind, w: 48, h: 52, lift: 0 });
             }
         }
+        this.clearCoins();
+    }
+
+    /**
+     * Altura (centro, acima do chão) em que uma moeda na posição x não fica dentro de nenhum obstáculo:
+     * sobe por cima de blocos e racks; no drone, passa por baixo (pega agachado) ou por cima.
+     */
+    private safeLift(x: number, lift: number) {
+        for (const thing of this.things) {
+            if (thing.kind !== 'block' && thing.kind !== 'rack' && thing.kind !== 'drone') continue;
+            if (Math.abs(thing.sprite.x - x) > thing.w / 2 + 34) continue;
+            if (thing.kind === 'drone') {
+                const center = thing.lift + thing.h / 2;
+                if (Math.abs(lift - center) < thing.h / 2 + 28) lift = lift < center ? 28 : center + thing.h / 2 + 34;
+            } else {
+                lift = Math.max(lift, thing.h + 38);
+            }
+        }
+        return lift;
+    }
+
+    private placeCoin(thing: Thing, lift: number) {
+        thing.sprite.y = GROUND - lift;
+        thing.lift = lift - 15;
     }
 
     private spawnCoins() {
@@ -325,9 +349,20 @@ export class KartDeploy extends ArcadeScene {
             let lift = 34;
             if (pattern === 1) lift = 60 + Math.sin((i / (count - 1)) * Math.PI) * 120;
             if (pattern === 2) lift = 170;
-            const coin = this.add.image(WIDTH + 40 + i * 46, GROUND - lift, 'commit').setDepth(35);
+            const x = WIDTH + 40 + i * 46;
+            const coin = this.add.image(x, 0, 'commit').setDepth(35);
             this.tweens.add({ targets: coin, scaleX: { from: 1, to: 0.3 }, duration: 380, yoyo: true, repeat: -1, delay: i * 60 });
-            this.track({ sprite: coin, kind: 'coin', w: 30, h: 30, lift: lift - 15 });
+            this.placeCoin(this.track({ sprite: coin, kind: 'coin', w: 30, h: 30, lift: 0 }), this.safeLift(x, lift));
+        }
+    }
+
+    /** Um obstáculo novo empurra as moedas que já estavam no caminho dele. */
+    private clearCoins() {
+        for (const thing of this.things) {
+            if (thing.kind !== 'coin') continue;
+            const lift = thing.lift + 15;
+            const safe = this.safeLift(thing.sprite.x, lift);
+            if (safe !== lift) this.placeCoin(thing, safe);
         }
     }
 
