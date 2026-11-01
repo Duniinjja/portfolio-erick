@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Erick Alves · Currículo</title>
+<style>
+    @page { size: A4; margin: 0; }
+    :root {
+        --ink: #111;
+        --muted: #555;
+        --line: #ddd;
+        --gold: #b88f00;
+        --yellow: #f2c200;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 9.6pt;
+        line-height: 1.45;
+        color: var(--ink);
+        background: #fff;
+    }
+    .page {
+        width: 210mm;
+        min-height: 297mm;
+        padding: 14mm 15mm 12mm;
+        page-break-after: always;
+        position: relative;
+    }
+    .page:last-child { page-break-after: auto; }
+    .page::before {
+        content: '';
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 5px;
+        background: var(--yellow);
+    }
+
+    header.top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 10mm;
+        padding-bottom: 5mm;
+        border-bottom: 2px solid var(--ink);
+    }
+    h1 {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 30pt;
+        line-height: 1;
+        letter-spacing: -0.5px;
+    }
+    h1 span { color: var(--yellow); }
+    .role { margin-top: 2.5mm; font-size: 11pt; font-weight: 600; }
+    .role i { color: var(--gold); font-style: normal; padding: 0 4px; }
+    .contacts { list-style: none; text-align: right; font-size: 8.8pt; color: var(--muted); line-height: 1.6; }
+    .contacts strong { color: var(--ink); font-weight: 600; }
+
+    section { margin-top: 5.5mm; }
+    h2 {
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--gold);
+        padding-bottom: 1.5mm;
+        margin-bottom: 2.5mm;
+        border-bottom: 1px solid var(--line);
+    }
+    p + p { margin-top: 1.6mm; }
+
+    .job { margin-bottom: 4mm; break-inside: avoid; }
+    .job:last-child { margin-bottom: 0; }
+    .job__head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+    .job__title { font-size: 10.4pt; font-weight: 700; }
+    .job__date { font-size: 8.8pt; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .job__company { color: var(--gold); font-weight: 600; margin-bottom: 1.2mm; }
+    ul.bullets { padding-left: 4.5mm; }
+    ul.bullets li { margin-top: 0.8mm; }
+    ul.bullets li::marker { color: var(--gold); }
+
+    .projects { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 7mm; }
+    .project { break-inside: avoid; }
+    .project strong { display: block; font-size: 9.8pt; }
+    .project span { color: var(--muted); font-size: 8.4pt; }
+    .project p { margin-top: 0.6mm; }
+
+    .skills { display: grid; grid-template-columns: 38mm 1fr; gap: 1.4mm 5mm; }
+    .skills dt { font-weight: 700; }
+    .skills dd { color: #222; }
+
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8mm; }
+    .item { margin-bottom: 2.4mm; break-inside: avoid; }
+    .item strong { display: block; }
+    .item span { color: var(--muted); font-size: 8.8pt; }
+    .line { margin-bottom: 1.4mm; }
+    .line span { color: var(--muted); font-size: 8.8pt; }
+
+    footer.bottom {
+        position: absolute;
+        left: 15mm;
+        right: 15mm;
+        bottom: 9mm;
+        display: flex;
+        justify-content: space-between;
+        font-size: 7.8pt;
+        color: #888;
+        border-top: 1px solid var(--line);
+        padding-top: 2mm;
+    }
+</style>
+</head>
+<body>
+
+<div class="page">
+    <header class="top">
+        <div>
+            <h1>Erick Alves<span>.</span></h1>
+            <p class="role">Engenheiro de Software Full Stack <i>|</i> Fundador da Woltek</p>
+        </div>
+        <ul class="contacts">
+            <li><strong>São Paulo/SP</strong></li>
+            <li>(11) 97828-9528</li>
+            <li>erick.nascimento12@hotmail.com</li>
+            <li>linkedin.com/in/erickalvesn</li>
+            <li>github.com/Duniinjja</li>
+            <li><strong>portfolio.woltek.com.br</strong></li>
+        </ul>
+    </header>
+
+    <section>
+        <h2>Resumo</h2>
+        <p>
+            Engenheiro de software full stack. Construo sistemas completos: do modelo de dados ao deploy, passando pela
+            API, pela interface e pelo monitoramento em produção. Hoje desenvolvo as plataformas da operação do Grupo UOP
+            (CRM com WhatsApp e IA generativa, SaaS financeiro multiempresa, APIs com dados oficiais e plataformas de
+            ensino) e sou fundador da Woltek, estúdio de engenharia de software com mais de 35 clientes ativos.
+        </p>
+        <p>
+            Comecei na análise de dados e finanças, automatizando rotinas com Python e Excel. Essa base continua comigo:
+            antes de escrever código, entendo o processo e o número que a pessoa precisa ver. Foram mais de 7.800
+            contribuições no GitHub nos últimos 12 meses.
+        </p>
+    </section>
+
+    <section>
+        <h2>Experiência profissional</h2>
+
+        <div class="job">
+            <div class="job__head">
+                <span class="job__title">Analista de Dados e Desenvolvedor Full Stack</span>
+                <span class="job__date">10/2025 – atual</span>
+            </div>
+            <div class="job__company">Grupo UOP · São Paulo/SP</div>
+            <p>Entrei como analista de dados e passei a construir os sistemas da operação de ponta a ponta, do banco de dados ao deploy, com observabilidade em produção.</p>
+            <ul class="bullets">
+                <li><b>CRM operacional</b> (2.600+ commits): atendimento pelo WhatsApp, bot SDR com IA generativa que qualifica leads, funil Kanban em tempo real (Socket.io), contratos em PDF com reconhecimento facial, área processual com OCR, RBAC com Casbin e 2FA.</li>
+                <li><b>SaaS financeiro multiempresa</b> (1.200+ commits): vendas, receitas, despesas, orçamento e fluxo de caixa em Django REST e React, com Celery, Redis, Django Channels e Nginx.</li>
+                <li><b>API financeira</b> alimentada pelo Banco Central e pelo IBGE: séries versionadas, Tabela Price e simuladores com cálculo em Decimal, documentação OpenAPI.</li>
+                <li><b>Importação de extratos</b> XLSX/CSV com reconhecimento automático de cabeçalhos, deduplicação por hash e dashboard financeiro por empresa.</li>
+                <li><b>Plataformas de educação corporativa</b>: cursos, avaliações, certificados e licenças por usuário ativo no mês.</li>
+                <li><b>Observabilidade</b>: Prometheus, Grafana e OpenTelemetry ligados por WireGuard; deploy em Docker pelo Coolify.</li>
+            </ul>
+        </div>
+
+        <div class="job">
+            <div class="job__head">
+                <span class="job__title">Fundador e Engenheiro de Software</span>
+                <span class="job__date">atual</span>
+            </div>
+            <div class="job__company">Woltek · remoto, atendendo todo o Brasil</div>
+            <p>Estúdio de engenharia de software que desenha e constrói sistemas sob medida, aplicativos e sites premium, com código feito à mão e arquitetura pensada para crescer.</p>
+            <ul class="bullets">
+                <li>Mais de 35 clientes ativos e três produtos SaaS próprios em produção: CRM multi-tenant, gestão financeira e plataforma de apresentações comerciais.</li>
+                <li>Projetos como o sistema jurídico que substituiu as planilhas de um escritório (alertas de prazos, classificação pelo número CNJ, SLA de laudos) e uma loja online de brindes personalizados.</li>
+                <li>Ferramentas próprias: Woltek CI (GitHub Actions rodando localmente em containers) e woldesk (acesso remoto em Rust com criptografia ponta a ponta).</li>
+            </ul>
+        </div>
+
+    </section>
+
+    <footer class="bottom"><span>Erick Alves · Currículo</span><span>1/2</span></footer>
+</div>
+
+<div class="page">
+    <section style="margin-top: 0">
+        <h2>Experiência anterior</h2>
+        <div class="job">
+            <div class="job__head">
+                <span class="job__title">Data Analyst</span>
+                <span class="job__date">09/2021 – 06/2024</span>
+            </div>
+            <div class="job__company">Alcoólicos Anônimos (Escritório de Serviços Gerais) · São Paulo/SP</div>
+            <p>Controle de documentos, otimização de cadastros e processos internos, relatórios e gráficos analíticos para apoiar decisões, com Power BI, Excel, VBA, Power Query e Python.</p>
+        </div>
+
+        <div class="job">
+            <div class="job__head">
+                <span class="job__title">Business Analyst</span>
+                <span class="job__date">07/2019 – 02/2020</span>
+            </div>
+            <div class="job__company">DOW Chemical · São Paulo/SP</div>
+            <p>Análise financeira e de dados: controle de gastos, faturamento em XML, organização fiscal no Egestor, relatórios gerenciais, métricas de e-commerce e automação de rotinas financeiras com Python.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Projetos em destaque</h2>
+        <div class="projects">
+            <div class="project">
+                <strong>Sistema CRM</strong>
+                <span>React · Node.js · Prisma · PostgreSQL · Redis · BullMQ · Socket.io</span>
+                <p>O maior sistema que construí: WhatsApp, bot com IA, funil em tempo real, processual e reversão de chargeback.</p>
+            </div>
+            <div class="project">
+                <strong>Sistema de Gestão (SaaS financeiro)</strong>
+                <span>Django REST · React · MySQL · Redis · Celery · Nginx</span>
+                <p>Gestão financeira multiempresa com processamento em segundo plano e atualizações ao vivo. Em produção, v2.</p>
+            </div>
+            <div class="project">
+                <strong>Portal Wertice</strong>
+                <span>Next.js 16 · React 19 · PostgreSQL 17 · Prisma 7 · Playwright</span>
+                <p>Site dos produtos e portal de contratação, assinaturas, faturas e gestão de acessos, com testes de ponta a ponta.</p>
+            </div>
+            <div class="project">
+                <strong>API Financeira</strong>
+                <span>TypeScript · Node.js · PostgreSQL · OpenAPI · Prometheus</span>
+                <p>Taxas oficiais de 29 modalidades, Tabela Price e simuladores; cada resposta informa a origem e a versão do dado.</p>
+            </div>
+            <div class="project">
+                <strong>woldesk</strong>
+                <span>Rust · tokio · zstd · X25519 · ChaCha20-Poly1305</span>
+                <p>Acesso remoto do protocolo à criptografia: codec de tela por blocos e relay cego para atravessar NAT.</p>
+            </div>
+            <div class="project">
+                <strong>Este portfólio</strong>
+                <span>Vue 3 · TypeScript · three.js · Phaser · MediaPipe</span>
+                <p>Rosto em partículas 3D, arcade com quatro jogos e um espelho com visão computacional que reage a gestos e expressões.</p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Competências técnicas</h2>
+        <dl class="skills">
+            <dt>Frontend</dt><dd>React 19, Next.js 16, TypeScript, Vue 3, Vite, Tailwind, TanStack Query, three.js</dd>
+            <dt>Backend</dt><dd>Node.js, Express, Django REST, Prisma, Socket.io, BullMQ, Celery, REST e webhooks</dd>
+            <dt>Dados</dt><dd>PostgreSQL, MySQL, Redis, modelagem de dados, pandas, Power BI, Excel e VBA, ETL</dd>
+            <dt>Infra e DevOps</dt><dd>Docker, Coolify, Nginx, Prometheus, Grafana, OpenTelemetry, WireGuard, GitHub Actions</dd>
+            <dt>IA e integrações</dt><dd>IA generativa (Claude), WhatsApp (Evolution API), OCR, reconhecimento facial, Banco Central e IBGE</dd>
+            <dt>Segurança e qualidade</dt><dd>Rust, criptografia ponta a ponta, RBAC (Casbin), 2FA TOTP, Vitest, Playwright</dd>
+            <dt>Negócio</dt><dd>Finanças, fluxo de caixa, faturamento e NF-e, conciliação, KPIs (CAC, LTV, conversão), DRE</dd>
+        </dl>
+    </section>
+
+    <div class="cols">
+        <section>
+            <h2>Formação</h2>
+            <div class="item">
+                <strong>Tecnólogo em Análise e Desenvolvimento de Sistemas</strong>
+                <span>Universidade FAM · São Paulo/SP · 2023 – 2025</span>
+            </div>
+            <div class="item">
+                <strong>Técnico em Administração</strong>
+                <span>SENAI Morvan Figueiredo · 2019 – 2020</span>
+            </div>
+        </section>
+
+        <section>
+            <h2>Cursos</h2>
+            <div class="line"><strong>Modelagem de Dados</strong> <span>· Fundação Bradesco · 2025</span></div>
+            <div class="line"><strong>Python</strong> <span>· Fundação Bradesco · 2025</span></div>
+            <div class="line"><strong>Delphi DBGrid</strong> <span>· Fundação Bradesco · 2025</span></div>
+            <div class="line"><strong>Análise de Dados e Indicadores de Performance</strong> <span>· Fundação Bradesco · 2023</span></div>
+            <div class="line"><strong>Gestão Financeira</strong> <span>· SEBRAE · 2023</span></div>
+        </section>
+    </div>
+
+    <footer class="bottom"><span>portfolio.woltek.com.br</span><span>2/2</span></footer>
+</div>
+
+</body>
+</html>
