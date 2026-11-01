@@ -29,6 +29,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll));
         <p class="footer__copy container">
             © {{ year }} Erick Alves · Fundador da
             <a href="https://woltek.com.br/" target="_blank" rel="noopener">Woltek</a>.
+            <a class="footer__replay" href="?construir=1" rel="nofollow">Ver o site se construir</a>
         </p>
 
         <Transition name="fade">
@@ -125,6 +126,13 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll));
     }
 }
 
+.footer__replay {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-left: 12px;
+}
+
 .footer__top {
     position: fixed;
     right: 20px;
@@ -159,6 +167,11 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll));
     .footer__inner {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .footer__replay {
+        display: flex;
+        margin-left: 0;
     }
 }
 </style>

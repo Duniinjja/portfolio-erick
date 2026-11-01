@@ -14,6 +14,7 @@ import Arcade from './components/Arcade/Arcade.vue';
 import Lab from './components/Lab/Lab.vue';
 import Contact from './components/Contact/Contact.vue';
 import Footer from './components/Footer/Footer.vue';
+import BuildMode from './components/BuildMode/BuildMode.vue';
 import { setupCounters, setupReveals } from './motion';
 
 onMounted(() => {
@@ -37,4 +38,5 @@ onMounted(() => {
         <Contact />
     </main>
     <Footer />
+    <BuildMode />
 </template>

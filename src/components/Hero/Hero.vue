@@ -5,7 +5,7 @@ import Icon from '../Icon/Icon.vue';
 import HeroCounters from '../HeroCounters/HeroCounters.vue';
 import photoUrl from '../../assets/erick-foto.webp';
 import { contact, heroWords, socials } from '../../data/portfolio';
-import { reducedMotion } from '../../motion';
+import { reducedMotion, shouldBuild } from '../../motion';
 
 // O three.js chega num arquivo à parte: o texto aparece antes da cena 3D.
 const HeroScene = defineAsyncComponent(() => import('../HeroScene/HeroScene.vue'));
@@ -42,6 +42,7 @@ onMounted(() => {
     if (reducedMotion()) return;
 
     timer = window.setTimeout(() => typeLoop(0, heroWords[0]!.length, false), 1600);
+    if (shouldBuild()) return;
 
     // O nome entra letra por letra, caindo no lugar.
     if (nameEl.value) {

@@ -2,13 +2,38 @@ import { animate, splitText, stagger } from 'animejs';
 
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+const BUILT_KEY = 'site:construido';
+
+/**
+ * Modo construção: roda na primeira visita. `?construir=1` força e `?construir=0` desliga.
+ * Quando vale, é ele quem revela os elementos, no lugar das entradas de `setupReveals`.
+ */
+export const shouldBuild = () => {
+    if (reducedMotion()) return false;
+    const param = new URLSearchParams(window.location.search).get('construir');
+    if (param) return param === '1';
+    try {
+        return !localStorage.getItem(BUILT_KEY);
+    } catch {
+        return false;
+    }
+};
+
+export const rememberBuilt = () => {
+    try {
+        localStorage.setItem(BUILT_KEY, '1');
+    } catch {
+        // Sem armazenamento, a construção só roda de novo na próxima visita.
+    }
+};
+
 /**
  * Cada `[data-reveal-group]` entra uma vez quando aparece na tela: título, texto e
  * imagem sobem em sequência. Títulos com `data-split` entram letra por letra.
  * Sem script ou com movimento reduzido, tudo já está visível.
  */
 export const setupReveals = () => {
-    if (reducedMotion()) return;
+    if (reducedMotion() || shouldBuild()) return;
 
     const observer = new IntersectionObserver(
         (entries) => {
