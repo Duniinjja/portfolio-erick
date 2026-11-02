@@ -7,7 +7,7 @@ Portfólio pessoal de Erick Alves, engenheiro de software full stack e fundador 
 - Retrato em partículas 3D a partir de uma foto, sobre uma rede animada (three.js)
 - Projetos, stack, experiência e mapa de contribuições do GitHub
 - Animações com anime.js (títulos, filtros, vitrines, diálogos)
-- Arcade com quatro jogos em Phaser: Caça-Bugs, Kart Deploy, Funil de Leads e Sonata do Código
+- Arcade com quatro jogos em Phaser: Caça-Bugs, Kart Deploy (sprites 3D feitos com three.js), Python Infinito e Sintaxe Estelar (músicas CC0 do OpenGameArt)
 
 ## Rodar
 

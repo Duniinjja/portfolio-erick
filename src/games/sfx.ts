@@ -112,57 +112,27 @@ export const sfx = {
     gameOver: () => [392, 330, 262, 196].forEach((f, i) => tone(f, { dur: 0.22, type: 'triangle', vol: 0.09, delay: i * 0.16 })),
     record: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, { dur: 0.16, type: 'triangle', vol: 0.09, delay: i * 0.09 })),
     miss: () => tone(140, { dur: 0.06, type: 'triangle', vol: 0.04 }),
-};
-
-/** Nota de "piano" sintetizado: ataque rápido, decaimento longo, harmônico uma oitava acima. */
-export const playNote = (midi: number, vol = 0.12) => {
-    if (muted) return;
-    const c = audio();
-    if (!c || !master) return;
-    const t = c.currentTime;
-    const freq = 440 * Math.pow(2, (midi - 69) / 12);
-    const filter = c.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(freq * 6, t);
-    filter.frequency.exponentialRampToValueAtTime(freq * 1.5, t + 0.9);
-    const gain = c.createGain();
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(vol, t + 0.008);
-    gain.gain.exponentialRampToValueAtTime(vol * 0.35, t + 0.18);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
-    filter.connect(gain).connect(master);
-    [
-        { type: 'triangle' as Wave, mult: 1, level: 1 },
-        { type: 'sine' as Wave, mult: 2, level: 0.35 },
-        { type: 'sine' as Wave, mult: 3, level: 0.12 },
-    ].forEach(({ type, mult, level }) => {
-        const osc = c.createOscillator();
-        const g = c.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq * mult, t);
-        g.gain.value = level;
-        osc.connect(g).connect(filter);
-        osc.start(t);
-        osc.stop(t + 1.25);
-    });
-};
-
-/** Baixo do metrônomo: nota grave e curta que marca o compasso. */
-export const playBass = (midi: number, vol = 0.09) => {
-    tone(440 * Math.pow(2, (midi - 69) / 12), { dur: 0.22, type: 'sine', vol });
-    tone(880 * Math.pow(2, (midi - 69) / 12), { dur: 0.05, type: 'triangle', vol: vol * 0.25 });
-};
-
-/** Erro de digitação: duas notas desafinadas e abafadas. */
-export const playWrong = () => {
-    tone(98, { dur: 0.16, type: 'sawtooth', vol: 0.06 });
-    tone(104, { dur: 0.16, type: 'sawtooth', vol: 0.06 });
+    /** Nota da escala de lá menor pentatônica: cada acerto seguido sobe um degrau. */
+    note: (step: number) => {
+        const scale = [0, 3, 5, 7, 10];
+        const semitones = scale[step % 5]! + 12 * (Math.floor(step / 5) % 3);
+        tone(440 * Math.pow(2, semitones / 12), { dur: 0.09, type: 'triangle', vol: 0.05 });
+    },
 };
 
 export const isMuted = () => muted;
 
+const muteListeners = new Set<(value: boolean) => void>();
+
+/** Avisa quem toca música por fora destes efeitos. Devolve a função que cancela. */
+export const onMuteChange = (listener: (value: boolean) => void) => {
+    muteListeners.add(listener);
+    return () => muteListeners.delete(listener);
+};
+
 export const setMuted = (value: boolean) => {
     muted = value;
+    muteListeners.forEach((listener) => listener(value));
     try {
         localStorage.setItem('arcade:muted', value ? '1' : '0');
     } catch {

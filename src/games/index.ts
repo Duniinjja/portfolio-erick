@@ -2,13 +2,13 @@ import Phaser from 'phaser';
 import { COLORS, HEIGHT, WIDTH } from './ArcadeScene';
 import { BugHunt } from './BugHunt';
 import { KartDeploy } from './KartDeploy';
-import { LeadFunnel } from './LeadFunnel';
-import { CodeSonata } from './CodeSonata';
+import { PythonInfinito } from './PythonInfinito';
+import { StarSyntax } from './StarSyntax';
 import { isMuted, setMuted } from './sfx';
 
-export type GameId = 'bug-hunt' | 'kart-deploy' | 'lead-funnel' | 'code-sonata';
+export type GameId = 'bug-hunt' | 'kart-deploy' | 'python-infinito' | 'star-syntax';
 
-const scenes = { 'bug-hunt': BugHunt, 'kart-deploy': KartDeploy, 'lead-funnel': LeadFunnel, 'code-sonata': CodeSonata };
+const scenes = { 'bug-hunt': BugHunt, 'kart-deploy': KartDeploy, 'python-infinito': PythonInfinito, 'star-syntax': StarSyntax };
 
 export interface GameController {
     destroy: () => void;
@@ -21,11 +21,13 @@ export interface GameController {
 
 /** Cria o jogo dentro de `parent`. Este módulo é carregado só quando alguém abre o arcade. */
 export const launchGame = (id: GameId, parent: HTMLElement, onScore: (score: number, best: number) => void): GameController => {
+    // Desenha na resolução real da tela (até o dobro) em vez de esticar 960x540; a câmera aproxima o mesmo tanto.
+    const view = Math.min(2, Math.max(1, Math.ceil((parent.clientWidth * (window.devicePixelRatio || 1)) / WIDTH)));
     const game = new Phaser.Game({
         type: Phaser.AUTO,
         parent,
-        width: WIDTH,
-        height: HEIGHT,
+        width: WIDTH * view,
+        height: HEIGHT * view,
         backgroundColor: COLORS.black,
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
         input: { activePointers: 2 },
@@ -33,6 +35,7 @@ export const launchGame = (id: GameId, parent: HTMLElement, onScore: (score: num
         scene: [scenes[id]],
         banner: false,
     });
+    game.registry.set('view', view);
     game.events.on('arcade-score', ({ score, best }: { score: number; best: number }) => onScore(score, best));
     // Só em desenvolvimento: deixa os testes automáticos lerem o estado do jogo.
     if (import.meta.env.DEV) (window as unknown as { __arcade?: Phaser.Game }).__arcade = game;

@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { animate, stagger } from 'animejs';
 import Icon from '../Icon/Icon.vue';
-import kartUrl from '../../assets/kart.webp';
+import kartUrl from '../../assets/games/kart-capa.webp';
 import { onceVisible, reducedMotion } from '../../motion';
 import type { GameController, GameId } from '../../games';
 
@@ -19,28 +19,28 @@ const games: GameCard[] = [
         id: 'bug-hunt',
         name: 'Caça-Bugs',
         genre: 'Reflexo',
-        text: 'Cinco tipos de bug, poderes como Hotfix e Code Review, sprints com meta e o chefão Bug de Produção a cada quatro sprints.',
+        text: 'Cinco tipos de bug, poderes como Hotfix e Code Review, três dificuldades e o chefão Bug de Produção a cada quatro sprints.',
         controls: 'Clique ou toque',
     },
     {
         id: 'kart-deploy',
         name: 'Kart Deploy',
         genre: 'Corrida infinita',
-        text: 'Pulo duplo, agachar sob drones, escudo de CI, turbo e ímã de commits, de Dev até a Black Friday.',
+        text: 'Kart em 3D, pulo duplo, drones, escudo de CI, turbo e ímã de commits, com o cenário mudando de Dev até a Black Friday.',
         controls: 'Espaço, setas ou toque',
     },
     {
-        id: 'lead-funnel',
-        name: 'Funil de Leads',
-        genre: 'Precisão',
-        text: 'Capture leads e contratos VIP, fuja de spam e vírus, use o Bot de IA e bata a meta de cada mês.',
-        controls: 'Mouse, dedo ou setas',
+        id: 'python-infinito',
+        name: 'Python Infinito',
+        genre: 'Cobrinha sem fim',
+        text: 'Um mapa que nunca acaba: coma commits, desvie de erros e cones, e cresça até não caber mais na tela.',
+        controls: 'Setas, WASD ou deslizar',
     },
     {
-        id: 'code-sonata',
-        name: 'Sonata do Código',
-        genre: 'Digitação com música',
-        text: 'Cada tecla certa toca a próxima nota. Digite código e toque Beethoven, Mozart e Grieg, com o prazo correndo cada vez mais rápido.',
+        id: 'star-syntax',
+        name: 'Sintaxe Estelar',
+        genre: 'Nave de digitação',
+        text: 'Naves descem com palavras e cada letra certa dispara um tiro. Bomba EMP, nave-mãe e trilha synthwave.',
         controls: 'Teclado',
     },
 ];
@@ -124,6 +124,7 @@ const play = async (game: GameCard) => {
 
     try {
         const { launchGame } = await import('../../games');
+        await Promise.all(['200 40px Montserrat', '300 20px Montserrat'].map((font) => document.fonts.load(font)));
         if (!stage.value || playing.value?.id !== game.id) return;
         controller = launchGame(game.id, stage.value, (_score, best) => {
             bests.value = { ...bests.value, [game.id]: best };
@@ -174,7 +175,7 @@ onBeforeUnmount(() => close());
             <header class="section-head section-head--dark" data-reveal-group>
                 <span class="section-kicker" data-reveal>Arcade</span>
                 <h2 id="arcade-titulo" data-split>Fez uma pausa? Jogue.</h2>
-                <p data-reveal>Quatro jogos que fiz com Phaser, inspirados no meu dia a dia de desenvolvedor. Seu recorde fica salvo neste navegador.</p>
+                <p data-reveal>Quatro jogos que fiz com Phaser e three.js, inspirados no meu dia a dia de desenvolvedor. Seu recorde fica salvo neste navegador.</p>
             </header>
 
             <ul ref="grid" class="games">
@@ -190,22 +191,16 @@ onBeforeUnmount(() => close());
                             <span class="cover__road"></span>
                             <span class="cover__block">500</span>
                             <span v-for="n in 3" :key="n" class="cover__coin" :style="{ '--n': n }"></span>
-                            <img class="cover__kart" :src="kartUrl" alt="" width="110" height="88" loading="lazy" />
+                            <img class="cover__kart" :src="kartUrl" alt="" width="112" height="63" loading="lazy" />
                         </template>
-                        <template v-else-if="game.id === 'code-sonata'">
-                            <span class="cover__staff">
-                                <i v-for="n in 7" :key="n" class="cover__note" :style="{ '--n': n, top: `${4 + ((n * 11) % 30)}px` }">♪</i>
-                            </span>
-                            <span class="cover__line"><b>const</b> deploy = <b>await</b> ci.run();</span>
-                            <span class="cover__keys">
-                                <i v-for="n in 10" :key="n" :style="{ '--n': n }"></i>
-                            </span>
+                        <template v-else-if="game.id === 'star-syntax'">
+                            <span class="cover__planet"></span>
+                            <span v-for="(word, n) in ['deploy', 'git', 'redis']" :key="word" class="cover__word" :style="{ '--n': n }">{{ word }}</span>
+                            <svg class="cover__ship" viewBox="0 0 92 84"><path d="M46 0q12 26 16 46l28 20-4 10-28-8-6 12H40l-6-12-28 8-4-10 28-20q4-20 16-46z" fill="#a5b4fc" /><ellipse cx="46" cy="32" rx="8" ry="15" fill="#0369a1" /></svg>
                         </template>
                         <template v-else>
-                            <span class="cover__drop cover__drop--lead"></span>
-                            <span class="cover__drop cover__drop--hot"></span>
-                            <span class="cover__drop cover__drop--spam"></span>
-                            <span class="cover__funnel"></span>
+                            <svg class="cover__snake" viewBox="0 0 200 110" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 92h46V46h52v28h44V26" stroke="#3b78c9" stroke-width="16" /><path d="M14 92h46" stroke="#f2c200" stroke-width="16" /></svg>
+                            <span class="cover__food"></span>
                         </template>
                     </div>
 
@@ -229,7 +224,7 @@ onBeforeUnmount(() => close());
                         <strong>{{ playing.name }}</strong>
                         <span>
                             Recorde {{ (bests[playing.id] ?? 0).toLocaleString('pt-BR') }} ·
-                            {{ playing.id === 'code-sonata' ? 'botão de pausa' : 'P pausa' }} · Esc sai
+                            {{ playing.id === 'star-syntax' ? 'botão de pausa' : 'P pausa' }} · Esc sai
                         </span>
                     </div>
                     <div class="player__tools">
@@ -251,12 +246,12 @@ onBeforeUnmount(() => close());
                 <div class="player__stage" @pointerdown="focusGame">
                     <div ref="stage" class="player__canvas" tabindex="-1"></div>
                     <input
-                        v-if="playing.id === 'code-sonata'"
+                        v-if="playing.id === 'star-syntax'"
                         ref="typing"
                         class="player__typing"
                         data-typing="true"
                         type="text"
-                        aria-label="Digite o código mostrado no jogo"
+                        aria-label="Digite as palavras mostradas no jogo"
                         autocomplete="off"
                         autocorrect="off"
                         autocapitalize="off"
@@ -383,9 +378,8 @@ onBeforeUnmount(() => close());
     position: absolute;
     left: 18%;
     bottom: 44px;
-    width: 110px;
+    width: 112px;
     height: auto;
-    image-rendering: pixelated;
     animation: hop 1.8s ease-in-out infinite;
 }
 
@@ -432,145 +426,74 @@ onBeforeUnmount(() => close());
     }
 }
 
-.cover--lead-funnel {
-    background-image: radial-gradient(rgb(255 255 255 / 0.06) 1.5px, transparent 1.5px);
-    background-size: 22px 22px;
+.cover--python-infinito {
+    background-color: #0a0f12;
+    background-image: linear-gradient(rgb(242 194 0 / 0.07) 1px, transparent 1px), linear-gradient(90deg, rgb(242 194 0 / 0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
 }
 
-.cover__funnel {
+.cover__snake {
     position: absolute;
-    left: 50%;
-    bottom: 22px;
-    width: 120px;
-    height: 56px;
+    inset: 16% 8%;
+    width: 84%;
+    height: 68%;
+}
+
+.cover__food {
+    position: absolute;
+    right: 12%;
+    top: 14%;
+    width: 12px;
+    height: 12px;
     background: var(--yellow);
-    clip-path: polygon(0 0, 100% 0, 64% 70%, 64% 100%, 36% 100%, 36% 70%);
-    animation: sway 2.6s ease-in-out infinite;
-}
-
-@keyframes sway {
-    0%, 100% {
-        transform: translateX(-110%);
-    }
-    50% {
-        transform: translateX(10%);
-    }
-}
-
-.cover__drop {
-    position: absolute;
-    top: -40px;
-    width: 34px;
-    height: 34px;
     border-radius: 50%;
-    animation: fall 2.6s linear infinite;
 }
 
-.cover__drop--lead {
-    left: 30%;
-    background: #25d366;
+.cover--star-syntax {
+    background:
+        radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),
+        radial-gradient(1.5px 1.5px at 70% 18%, #fff, transparent),
+        radial-gradient(1px 1px at 44% 62%, #fff, transparent),
+        radial-gradient(1px 1px at 86% 70%, #fff, transparent),
+        radial-gradient(circle at 80% 10%, rgb(192 38 211 / 0.4), transparent 50%),
+        linear-gradient(#02030c, #10123a);
 }
 
-.cover__drop--hot {
-    left: 55%;
-    background: var(--yellow);
-    animation-delay: -0.9s;
-}
-
-.cover__drop--spam {
-    left: 72%;
-    background: #ff5c5c;
-    animation-delay: -1.7s;
-}
-
-@keyframes fall {
-    to {
-        transform: translateY(270px) rotate(200deg);
-    }
-}
-
-.cover--code-sonata {
-    display: grid;
-    grid-template-rows: 1fr auto auto;
-    gap: 12px;
-    padding: 18px 16px 0;
-}
-
-.cover__staff {
-    position: relative;
-    background: repeating-linear-gradient(to bottom, transparent 0 9px, #34343b 9px 10px) 0 6px / 100% 50px no-repeat;
-}
-
-.cover__note {
+.cover__planet {
     position: absolute;
-    left: calc(var(--n) * 13%);
-    color: var(--yellow);
-    font-style: normal;
-    font-size: 22px;
-    opacity: 0;
-    animation: note-pop 3.5s ease-out infinite;
-    animation-delay: calc(var(--n) * 0.35s);
+    right: 12%;
+    top: 12%;
+    width: 44px;
+    height: 44px;
+    background: radial-gradient(circle at 35% 30%, #fbcfe8, #c026d3 50%, #1e0b45);
+    border-radius: 50%;
 }
 
-@keyframes note-pop {
-    0%, 8% {
-        opacity: 0;
-        transform: translateY(8px) scale(0.4);
-    }
-    14%, 70% {
-        opacity: 1;
-        transform: none;
-    }
-    90%, 100% {
-        opacity: 0;
-    }
+.cover__word {
+    position: absolute;
+    left: calc(14% + var(--n) * 26%);
+    top: -24px;
+    padding: 2px 7px;
+    background: rgb(5 7 20 / 0.8);
+    border: 1px solid #7dd3fc;
+    color: #fff;
+    font-family: Consolas, Menlo, monospace;
+    font-size: 13px;
+    animation: word 3.6s linear infinite;
+    animation-delay: calc(var(--n) * -1.2s);
 }
 
-.cover__line {
-    font-family: Consolas, 'Courier New', monospace;
-    font-size: 14px;
-    color: #e4e4e7;
-    white-space: nowrap;
-    overflow: hidden;
-    border-right: 2px solid var(--yellow);
-    width: 0;
-    animation: typing 3.5s steps(32) infinite;
-
-    b {
-        color: var(--yellow);
-        font-weight: 400;
+@keyframes word {
+    to {
+        top: 72%;
     }
 }
 
-@keyframes typing {
-    0% {
-        width: 0;
-    }
-    80%, 100% {
-        width: 32ch;
-    }
-}
-
-.cover__keys {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 3px;
-    height: 46px;
-
-    i {
-        background: #e9e9ec;
-        animation: key 3.5s steps(1) infinite;
-        animation-delay: calc(var(--n) * 0.28s);
-    }
-}
-
-@keyframes key {
-    0%, 6% {
-        background: var(--yellow);
-    }
-    7%, 100% {
-        background: #e9e9ec;
-    }
+.cover__ship {
+    position: absolute;
+    left: calc(50% - 22px);
+    bottom: 10px;
+    width: 44px;
 }
 
 /* ---------- Corpo do cartão ---------- */

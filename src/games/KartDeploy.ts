@@ -1,13 +1,22 @@
 import Phaser from 'phaser';
-import kartUrl from '../assets/kart.webp';
+import kartUrl from '../assets/games/kart.webp';
+import crateUrl from '../assets/games/crate.webp';
+import rackUrl from '../assets/games/rack.webp';
+import droneUrl from '../assets/games/drone.webp';
+import coneUrl from '../assets/games/cone.webp';
+import commitUrl from '../assets/games/commit.webp';
+import musicUrl from '../assets/games/musica/kart.mp3';
 import { ArcadeScene, COLORS, HEIGHT, SANS, WIDTH } from './ArcadeScene';
 import { sfx } from './sfx';
 
 const GROUND = 456;
+const ROAD_TOP = 420;
 const KART_X = 190;
+const KART_SCALE = 0.33;
+const COIN_SCALE = 0.36;
 const GRAVITY = 2600;
 
-type ObstacleKind = 'block' | 'rack' | 'drone';
+type ObstacleKind = 'block' | 'rack' | 'drone' | 'cone';
 type PowerKind = 'shield' | 'turbo' | 'magnet';
 
 interface Thing {
@@ -19,12 +28,13 @@ interface Thing {
     lift: number;
 }
 
+/** Cada etapa tem o próprio céu (de cima até o horizonte), sol e tom das silhuetas. */
 const STAGES = [
-    { name: 'Dev', at: 0, sky: 0x0a0a0b, sub: 'Aquecendo os motores' },
-    { name: 'Staging', at: 600, sky: 0x0b1424, sub: 'Testes rodando: a pista acelera' },
-    { name: 'Produção', at: 1600, sky: 0x1a0b10, sub: 'Agora é para valer' },
-    { name: 'Black Friday', at: 3000, sky: 0x1a1404, sub: 'Pico de acessos!' },
-    { name: 'Escala global', at: 5000, sky: 0x08141a, sub: 'Milhões de requisições por minuto' },
+    { name: 'Dev', at: 0, sub: 'Aquecendo os motores', sky: ['#0b1030', '#3b1f6b', '#c2477a', '#ff9a5c'], sun: 0xffb46b, far: 0x4a2a7a, mid: 0x1e1440 },
+    { name: 'Staging', at: 600, sub: 'Testes rodando: a pista acelera', sky: ['#04202e', '#0f5566', '#3aa39a', '#ffdca6'], sun: 0xfff0c0, far: 0x1c6b70, mid: 0x0b3040 },
+    { name: 'Produção', at: 1600, sub: 'Agora é para valer', sky: ['#14060f', '#4a0f2a', '#b5213a', '#ff7a3c'], sun: 0xff5a36, far: 0x6e1a30, mid: 0x2a0a18 },
+    { name: 'Black Friday', at: 3000, sub: 'Pico de acessos!', sky: ['#120b02', '#4a2f06', '#a8740a', '#ffd84d'], sun: 0xffe58a, far: 0x7a5410, mid: 0x2e1e06 },
+    { name: 'Escala global', at: 5000, sub: 'Milhões de requisições por minuto', sky: ['#020d14', '#063a3f', '#0e7a66', '#7df5c0'], sun: 0xc8ffe8, far: 0x0f5c54, mid: 0x062a2c },
 ];
 
 /**
@@ -36,12 +46,18 @@ export class KartDeploy extends ArcadeScene {
     readonly title = 'Kart Deploy';
     readonly hint = 'Espaço, seta para cima ou toque para pular (segure para ir mais alto; dá para pular duas vezes). Seta para baixo ou deslize o dedo para baixo para agachar sob os drones.';
     readonly medals: [number, number, number] = [1000, 3000, 7000];
+    protected music = musicUrl;
 
-    private kart!: Phaser.GameObjects.Image;
+    private kart!: Phaser.GameObjects.Sprite;
+    private kartShadow!: Phaser.GameObjects.Image;
+    private flame!: Phaser.GameObjects.Particles.ParticleEmitter;
     private shieldRing!: Phaser.GameObjects.Arc;
     private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
     private lines!: Phaser.GameObjects.Particles.ParticleEmitter;
-    private sky!: Phaser.GameObjects.Rectangle;
+    private skies: Phaser.GameObjects.Image[] = [];
+    private sun!: Phaser.GameObjects.Image;
+    private stars!: Phaser.GameObjects.Graphics;
+    private clouds!: Phaser.GameObjects.TileSprite;
     private layers: Phaser.GameObjects.TileSprite[] = [];
     private road!: Phaser.GameObjects.TileSprite;
     private things: Thing[] = [];
@@ -76,7 +92,13 @@ export class KartDeploy extends ArcadeScene {
     }
 
     preload() {
-        if (!this.textures.exists('kart')) this.load.image('kart', kartUrl);
+        if (this.textures.exists('kart3d')) return;
+        this.load.spritesheet('kart3d', kartUrl, { frameWidth: 300, frameHeight: 170 });
+        this.load.image('ob-crate', crateUrl);
+        this.load.image('ob-rack', rackUrl);
+        this.load.image('ob-drone', droneUrl);
+        this.load.image('ob-cone', coneUrl);
+        this.load.image('commit', commitUrl);
     }
 
     protected build() {
@@ -87,26 +109,29 @@ export class KartDeploy extends ArcadeScene {
         });
 
         this.legend = [
-            { key: 'ob-block', label: 'Erro: pule', scale: 0.8 },
-            { key: 'ob-drone', label: 'Drone: agache', scale: 0.8 },
-            { key: 'commit', label: 'Commit: pontos' },
+            { key: 'ob-crate', label: 'Erro: pule', scale: 0.42 },
+            { key: 'ob-drone', label: 'Drone: agache ou pule', scale: 0.42 },
+            { key: 'commit', label: 'Commit: pontos', scale: COIN_SCALE },
             { key: 'pw-shield', label: 'Escudo de CI', scale: 0.8 },
             { key: 'pw-turbo', label: 'Turbo: atravessa tudo', scale: 0.8 },
             { key: 'pw-magnet', label: 'Ímã de commits', scale: 0.8 },
         ];
 
-        this.sky = this.add.rectangle(0, 0, WIDTH, HEIGHT, STAGES[0]!.sky).setOrigin(0);
-        const stars = this.add.graphics();
-        for (let i = 0; i < 70; i++) {
-            stars.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.1, 0.5)).fillCircle(Phaser.Math.Between(0, WIDTH), Phaser.Math.Between(0, 260), Phaser.Math.FloatBetween(0.6, 1.6));
+        this.skies = STAGES.map((_stage, i) => this.add.image(0, 0, `sky-${i}`).setOrigin(0).setAlpha(i ? 0 : 1));
+        this.stars = this.add.graphics();
+        for (let i = 0; i < 90; i++) {
+            this.stars.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.15, 0.8)).fillCircle(Phaser.Math.Between(0, WIDTH), Phaser.Math.Between(0, 210), Phaser.Math.FloatBetween(0.6, 1.5));
         }
+        this.sun = this.add.image(690, 262, 'sun').setTint(STAGES[0]!.sun);
+        this.tweens.add({ targets: this.sun, scale: { from: 1, to: 1.05 }, duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        this.clouds = this.add.tileSprite(0, 40, WIDTH, 180, 'clouds').setOrigin(0).setAlpha(0.32);
         this.layers = [
-            this.add.tileSprite(0, 130, WIDTH, 260, 'city-far').setOrigin(0).setAlpha(0.45),
-            this.add.tileSprite(0, 196, WIDTH, 260, 'city-near').setOrigin(0),
+            this.add.tileSprite(0, 150, WIDTH, 270, 'bg-mount').setOrigin(0).setTint(STAGES[0]!.far),
+            this.add.tileSprite(0, 150, WIDTH, 270, 'bg-city').setOrigin(0).setTint(STAGES[0]!.mid),
+            this.add.tileSprite(0, 300, WIDTH, 120, 'bg-near').setOrigin(0),
         ];
-        this.add.rectangle(0, GROUND, WIDTH, HEIGHT - GROUND, 0x18181c).setOrigin(0);
-        this.add.rectangle(0, GROUND, WIDTH, 5, COLORS.yellow).setOrigin(0);
-        this.road = this.add.tileSprite(0, GROUND + 36, WIDTH, 8, 'road-dash').setOrigin(0);
+        this.add.image(0, ROAD_TOP, 'road-shade').setOrigin(0);
+        this.road = this.add.tileSprite(0, ROAD_TOP, WIDTH, HEIGHT - ROAD_TOP, 'road').setOrigin(0);
 
         this.dust = this.add.particles(0, 0, 'ui-dot', {
             speedX: { min: -260, max: -120 },
@@ -114,9 +139,20 @@ export class KartDeploy extends ArcadeScene {
             lifespan: 420,
             scale: { start: 0.6, end: 0 },
             alpha: { start: 0.5, end: 0 },
-            tint: 0x8a8a92,
+            tint: 0x9a9aa8,
             frequency: 40,
         });
+        this.dust.setDepth(39);
+        this.flame = this.add.particles(0, 0, 'ui-dot', {
+            speedX: { min: -300, max: -160 },
+            speedY: { min: -20, max: 20 },
+            lifespan: 180,
+            scale: { start: 0.42, end: 0 },
+            tint: [0xfff0a0, 0xff9a2a, 0xff4a1a],
+            blendMode: Phaser.BlendModes.ADD,
+            frequency: 26,
+        });
+        this.flame.setDepth(39);
         this.lines = this.add.particles(0, 0, 'ui-square', {
             x: WIDTH + 10,
             y: { min: 60, max: GROUND - 20 },
@@ -130,12 +166,12 @@ export class KartDeploy extends ArcadeScene {
             emitting: false,
         });
 
-        this.kart = this.add.image(KART_X, GROUND, 'kart').setOrigin(0.5, 1).setDepth(40);
-        const k = this.kart.width;
-        this.kart.setScale(124 / k);
-        this.shieldRing = this.add.circle(KART_X, GROUND - 46, 66).setStrokeStyle(4, COLORS.green, 0.9).setFillStyle(COLORS.green, 0.12).setDepth(41).setVisible(false);
+        if (!this.anims.exists('kart-roll')) this.anims.create({ key: 'kart-roll', frames: this.anims.generateFrameNumbers('kart3d', { start: 0, end: 3 }), frameRate: 26, repeat: -1 });
+        this.kartShadow = this.add.image(KART_X, GROUND + 3, 'shadow').setDepth(38);
+        this.kart = this.add.sprite(KART_X, GROUND, 'kart3d').setOrigin(0.5, 0.87).setScale(KART_SCALE).setDepth(40).play('kart-roll');
+        this.shieldRing = this.add.circle(KART_X, GROUND - 28, 58).setStrokeStyle(3, COLORS.green, 0.9).setFillStyle(COLORS.green, 0.12).setDepth(41).setVisible(false);
 
-        this.hudText = this.add.text(24, 44, '', { fontFamily: SANS, fontSize: '13px', fontStyle: '800', color: '#a3a3ab' }).setDepth(80);
+        this.hudText = this.add.text(24, 44, '', { fontFamily: SANS, fontSize: '13px', fontStyle: '400', color: '#d4d2cc' }).setDepth(80);
         this.powerBar = this.add.graphics().setDepth(80);
 
         // Controles.
@@ -147,11 +183,11 @@ export class KartDeploy extends ArcadeScene {
         kb?.on('keydown-DOWN', () => this.setDuck(true)).on('keydown-S', () => this.setDuck(true));
         kb?.on('keyup-DOWN', () => this.setDuck(false)).on('keyup-S', () => this.setDuck(false));
         this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-            this.swipeStart = p.y;
+            this.swipeStart = p.worldY;
             press();
         });
         this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-            if (p.isDown && this.swipeStart !== undefined && p.y - this.swipeStart > 40) this.setDuck(true);
+            if (p.isDown && this.swipeStart !== undefined && p.worldY - this.swipeStart > 40) this.setDuck(true);
         });
         this.input.on('pointerup', () => {
             release();
@@ -160,66 +196,169 @@ export class KartDeploy extends ArcadeScene {
         });
     }
 
-    private makeTextures() {
-        if (this.textures.exists('city-far')) return;
+    /** Tela desenhada à mão no canvas: dá para usar gradiente, que os Graphics do Phaser não fazem bem. */
+    private paint(key: string, w: number, h: number, draw: (c: CanvasRenderingContext2D) => void) {
+        const texture = this.textures.createCanvas(key, w, h)!;
+        draw(texture.getContext());
+        texture.refresh();
+    }
 
-        const city = (key: string, color: number, light: number, seed: number) => {
-            const g = this.add.graphics();
-            const rnd = new Phaser.Math.RandomDataGenerator([String(seed)]);
+    private makeTextures() {
+        if (this.textures.exists('sky-0')) return;
+        const rnd = new Phaser.Math.RandomDataGenerator(['kart']);
+
+        STAGES.forEach((stage, i) =>
+            this.paint(`sky-${i}`, WIDTH, ROAD_TOP, (c) => {
+                const sky = c.createLinearGradient(0, 0, 0, ROAD_TOP);
+                stage.sky.forEach((color, n) => sky.addColorStop([0, 0.42, 0.76, 1][n]!, color));
+                c.fillStyle = sky;
+                c.fillRect(0, 0, WIDTH, ROAD_TOP);
+            }),
+        );
+
+        this.paint('sun', 340, 340, (c) => {
+            const glow = c.createRadialGradient(170, 170, 40, 170, 170, 170);
+            glow.addColorStop(0, 'rgba(255,255,255,0.8)');
+            glow.addColorStop(0.5, 'rgba(255,255,255,0.14)');
+            glow.addColorStop(1, 'rgba(255,255,255,0)');
+            c.fillStyle = glow;
+            c.fillRect(0, 0, 340, 340);
+            c.fillStyle = '#fff';
+            c.beginPath();
+            c.arc(170, 170, 78, 0, Math.PI * 2);
+            c.fill();
+            // Faixas horizontais na base do sol.
+            c.globalCompositeOperation = 'destination-out';
+            for (let i = 0; i < 6; i++) c.fillRect(0, 186 + i * 12, 340, 2 + i * 1.3);
+        });
+
+        this.paint('clouds', 1024, 180, (c) => {
+            for (let i = 0; i < 22; i++) {
+                const x = rnd.between(0, 1024);
+                const y = rnd.between(20, 160);
+                const w = rnd.between(120, 300);
+                const puff = c.createRadialGradient(x, y, 0, x, y, w / 2);
+                puff.addColorStop(0, 'rgba(255,255,255,0.5)');
+                puff.addColorStop(1, 'rgba(255,255,255,0)');
+                c.fillStyle = puff;
+                c.save();
+                c.translate(0, y);
+                c.scale(1, 0.22);
+                c.translate(0, -y);
+                c.fillRect(x - w, y - w, w * 2, w * 2);
+                c.restore();
+            }
+        });
+
+        this.paint('bg-mount', 1024, 270, (c) => {
+            const ridge = (base: number, height: number, alpha: number, seed: number) => {
+                c.fillStyle = `rgba(255,255,255,${alpha})`;
+                c.beginPath();
+                c.moveTo(0, 270);
+                for (let x = 0; x <= 1024; x += 8) {
+                    // Só múltiplos inteiros da largura: o desenho emenda sem corte.
+                    const a = (x / 1024) * Math.PI * 2;
+                    const y = base - (Math.sin(a * 2 + seed) * 0.5 + Math.sin(a * 5 + seed * 2) * 0.3 + Math.sin(a * 11 + seed * 3) * 0.13 + 0.8) * height;
+                    c.lineTo(x, y);
+                }
+                c.lineTo(1024, 270);
+                c.closePath();
+                c.fill();
+            };
+            ridge(230, 90, 0.55, 1.3);
+            ridge(258, 70, 1, 4.1);
+        });
+
+        this.paint('bg-city', 1024, 270, (c) => {
             let x = 0;
-            while (x < 512) {
-                const w = rnd.between(38, 86);
-                const h = rnd.between(80, 240);
-                g.fillStyle(color).fillRect(x, 260 - h, w - 6, h);
-                if (rnd.frac() > 0.6) g.fillStyle(light).fillRect(x + w / 2 - 4, 260 - h - 14, 2, 14);
-                for (let y = 260 - h + 12; y < 250; y += 14) {
-                    for (let lx = x + 8; lx < x + w - 14; lx += 12) {
-                        g.fillStyle(rnd.frac() > 0.72 ? light : 0x2c2c33).fillRect(lx, y, 6, 4);
+            const lit = ['#ffd84d', '#fff3c4', '#7de8ff', '#ff9ec6'];
+            while (x < 1024) {
+                const w = Math.min(rnd.between(44, 96), 1024 - x);
+                const h = rnd.between(70, 215);
+                const top = 270 - h;
+                c.fillStyle = '#fff';
+                c.fillRect(x, top, w - 4, h);
+                if (rnd.frac() > 0.65) c.fillRect(x + w / 2 - 2, top - 22, 3, 22);
+                for (let y = top + 10; y < 262; y += 13) {
+                    for (let lx = x + 7; lx < x + w - 12; lx += 11) {
+                        if (rnd.frac() < 0.3) {
+                            c.fillStyle = rnd.pick(lit);
+                            c.fillRect(lx, y, 6, 6);
+                        }
                     }
                 }
                 x += w;
             }
-            g.generateTexture(key, 512, 260);
-            g.destroy();
-        };
-        city('city-far', 0x15151a, 0x5a4b12, 1);
-        city('city-near', 0x1d1d23, COLORS.yellow, 2);
+        });
+
+        this.paint('bg-near', 1024, 120, (c) => {
+            // Mureta com postes de luz.
+            c.fillStyle = '#0a0a10';
+            c.fillRect(0, 96, 1024, 24);
+            c.fillStyle = 'rgba(255,255,255,0.1)';
+            c.fillRect(0, 96, 1024, 2);
+            for (let x = 40; x < 1024; x += 256) {
+                c.fillStyle = '#0a0a10';
+                c.fillRect(x, 8, 5, 96);
+                c.fillRect(x, 8, 46, 4);
+                const lamp = c.createRadialGradient(x + 44, 14, 0, x + 44, 14, 20);
+                lamp.addColorStop(0, 'rgba(255,236,170,0.95)');
+                lamp.addColorStop(1, 'rgba(255,236,170,0)');
+                c.fillStyle = lamp;
+                c.fillRect(x + 22, -6, 44, 42);
+            }
+            for (let x = 8; x < 1024; x += 32) {
+                c.fillStyle = '#0a0a10';
+                c.fillRect(x, 84, 3, 14);
+            }
+        });
+
+        this.paint('road-shade', WIDTH, 26, (c) => {
+            const shade = c.createLinearGradient(0, 0, 0, 26);
+            shade.addColorStop(0, 'rgba(0,0,0,0.5)');
+            shade.addColorStop(1, 'rgba(0,0,0,0)');
+            c.fillStyle = shade;
+            c.fillRect(0, 0, WIDTH, 26);
+        });
+
+        this.paint('road', 256, HEIGHT - ROAD_TOP, (c) => {
+            const h = HEIGHT - ROAD_TOP;
+            const asphalt = c.createLinearGradient(0, 0, 0, h);
+            asphalt.addColorStop(0, '#2a2a33');
+            asphalt.addColorStop(0.5, '#1d1d25');
+            asphalt.addColorStop(1, '#101016');
+            c.fillStyle = asphalt;
+            c.fillRect(0, 0, 256, h);
+            for (let i = 0; i < 500; i++) {
+                c.fillStyle = `rgba(255,255,255,${rnd.frac() * 0.045})`;
+                c.fillRect(rnd.between(0, 255), rnd.between(10, h), 2, 1);
+            }
+            // Zebra da borda e faixa do meio.
+            for (let x = 0; x < 256; x += 64) {
+                c.fillStyle = '#e8352f';
+                c.fillRect(x, 0, 32, 9);
+                c.fillStyle = '#f4f4f2';
+                c.fillRect(x + 32, 0, 32, 9);
+            }
+            c.fillStyle = 'rgba(255,255,255,0.14)';
+            c.fillRect(0, 9, 256, 2);
+            c.fillStyle = '#d9b000';
+            c.fillRect(0, 76, 120, 5);
+        });
+
+        this.paint('shadow', 130, 22, (c) => {
+            const blob = c.createRadialGradient(65, 11, 0, 65, 11, 65);
+            blob.addColorStop(0, 'rgba(0,0,0,0.7)');
+            blob.addColorStop(1, 'rgba(0,0,0,0)');
+            c.save();
+            c.scale(1, 22 / 130);
+            c.translate(0, 0);
+            c.fillStyle = blob;
+            c.fillRect(0, 0, 130, 130);
+            c.restore();
+        });
 
         const g = this.add.graphics();
-        g.fillStyle(0x4a4a52).fillRect(0, 0, 44, 8);
-        g.generateTexture('road-dash', 88, 8);
-        g.clear();
-
-        g.fillStyle(COLORS.red).fillRoundedRect(0, 0, 56, 56, 6);
-        g.fillStyle(0x7a1f1f).fillRect(0, 46, 56, 10);
-        g.fillStyle(0xffffff).fillRect(10, 10, 36, 4);
-        g.generateTexture('ob-block', 56, 56);
-        g.clear();
-
-        g.fillStyle(0x34343c).fillRect(0, 0, 48, 112);
-        for (let y = 10; y < 104; y += 16) {
-            g.fillStyle(0x24242a).fillRect(6, y, 36, 11);
-            g.fillStyle(COLORS.red).fillCircle(36, y + 5, 2.5);
-        }
-        g.generateTexture('ob-rack', 48, 112);
-        g.clear();
-
-        // Drone: um bug com hélices.
-        g.lineStyle(3, 0x9a9aa3).lineBetween(14, 10, 14, 2).lineBetween(62, 10, 62, 2);
-        g.fillStyle(0x9a9aa3).fillRect(2, 0, 24, 3).fillRect(50, 0, 24, 3);
-        g.fillStyle(COLORS.purple).fillEllipse(38, 24, 56, 28);
-        g.fillStyle(0x3a3a42).fillCircle(64, 24, 9);
-        g.fillStyle(0xffffff).fillCircle(66, 20, 2.5).fillCircle(66, 28, 2.5);
-        g.fillStyle(0x5b3fa8).fillRect(36, 12, 3, 24);
-        g.generateTexture('ob-drone', 76, 40);
-        g.clear();
-
-        g.fillStyle(COLORS.yellow).fillCircle(16, 16, 16);
-        g.fillStyle(COLORS.black).fillCircle(16, 16, 6);
-        g.lineStyle(4, COLORS.black).lineBetween(0, 16, 9, 16).lineBetween(23, 16, 32, 16);
-        g.generateTexture('commit', 32, 32);
-        g.clear();
-
         const box = (key: string, color: number, glyph: () => void) => {
             g.fillStyle(color).fillRoundedRect(0, 0, 52, 52, 12);
             g.lineStyle(3, 0xffffff, 0.9).strokeRoundedRect(3, 3, 46, 46, 10);
@@ -250,7 +389,11 @@ export class KartDeploy extends ArcadeScene {
 
     protected onPause(paused: boolean) {
         this.dust.pause();
-        if (!paused) this.dust.resume();
+        this.flame.pause();
+        if (!paused) {
+            this.dust.resume();
+            this.flame.resume();
+        }
     }
 
     /* ---------- Controles ---------- */
@@ -279,7 +422,7 @@ export class KartDeploy extends ArcadeScene {
         this.jumps++;
         sfx.jump(second);
         if (second) this.burst(this.kart.x - 20, this.y - 10, COLORS.yellow, 10, 160);
-        this.tweens.add({ targets: this.kart, angle: { from: second ? -360 : -10, to: 0 }, duration: second ? 480 : 380, ease: 'Cubic.Out' });
+        if (second) this.tweens.add({ targets: this.kart, angle: { from: -360, to: 0 }, duration: 480, ease: 'Cubic.Out' });
         return true;
     }
 
@@ -290,31 +433,38 @@ export class KartDeploy extends ArcadeScene {
         return thing;
     }
 
+    /** Obstáculo apoiado no chão, com sombra própria. */
+    private grounded(key: string, x: number, scale: number, originY: number, extra: Phaser.GameObjects.GameObject[] = []) {
+        const shadow = this.add.image(0, 3, 'shadow').setScale(scale * 1.6, 1);
+        const image = this.add.image(0, 0, key).setOrigin(0.5, originY).setScale(scale);
+        return this.add.container(x, GROUND, [shadow, image, ...extra]).setDepth(30);
+    }
+
     private spawnObstacle() {
         const level = this.stage;
         const roll = Math.random();
+        const x = WIDTH + 60;
         let kind: ObstacleKind = 'block';
-        if (level >= 1 && roll < 0.3) kind = 'drone';
-        else if (level >= 1 && roll < 0.5) kind = 'rack';
+        if (level >= 1 && roll < 0.28) kind = 'drone';
+        else if (level >= 1 && roll < 0.45) kind = 'rack';
+        else if (roll < 0.72) kind = 'cone';
 
         if (kind === 'drone') {
-            const drone = this.add.image(WIDTH + 60, GROUND - 98, 'ob-drone').setDepth(30);
-            this.tweens.add({ targets: drone, y: GROUND - 104, duration: 300, yoyo: true, repeat: -1 });
-            this.track({ sprite: drone, kind, w: 62, h: 30, lift: 84 });
+            const drone = this.add.image(0, 0, 'ob-drone').setScale(0.42);
+            const box = this.add.container(x, GROUND - 58, [drone]).setDepth(30);
+            this.tweens.add({ targets: drone, y: -5, angle: { from: -3, to: 3 }, duration: 320, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+            this.track({ sprite: box, kind, w: 66, h: 30, lift: 42 });
         } else if (kind === 'rack') {
-            const rack = this.add.image(WIDTH + 60, GROUND, 'ob-rack').setOrigin(0.5, 1).setDepth(30);
-            this.track({ sprite: rack, kind, w: 40, h: 108, lift: 0 });
+            this.track({ sprite: this.grounded('ob-rack', x, 0.42, 0.96), kind, w: 42, h: 110, lift: 0 });
+        } else if (kind === 'cone') {
+            // Fileira de cones: pede um pulo mais longo conforme a etapa.
+            const count = Phaser.Math.Between(1, Math.min(3, 1 + level));
+            for (let i = 0; i < count; i++) this.track({ sprite: this.grounded('ob-cone', x + i * 40, 0.42, 0.96), kind, w: 26, h: 42, lift: 0 });
         } else {
             const label = Phaser.Utils.Array.GetRandom(['500', 'BUG', '404', 'NaN']);
-            const box = this.add.container(WIDTH + 60, GROUND, [
-                this.add.image(0, 0, 'ob-block').setOrigin(0.5, 1),
-                this.add.text(0, -24, label, { fontFamily: SANS, fontSize: '15px', fontStyle: '800', color: '#ffffff' }).setOrigin(0.5),
-            ]).setDepth(30);
-            this.track({ sprite: box, kind, w: 48, h: 52, lift: 0 });
-            if (level >= 2 && Math.random() < 0.35) {
-                const second = this.add.container(WIDTH + 130, GROUND, [this.add.image(0, 0, 'ob-block').setOrigin(0.5, 1)]).setDepth(30);
-                this.track({ sprite: second, kind, w: 48, h: 52, lift: 0 });
-            }
+            const text = this.add.text(-3, -24, label, { fontFamily: SANS, fontSize: '14px', fontStyle: '800', color: '#ffffff' }).setOrigin(0.5);
+            this.track({ sprite: this.grounded('ob-crate', x, 0.42, 0.85, [text]), kind, w: 50, h: 46, lift: 0 });
+            if (level >= 2 && Math.random() < 0.35) this.track({ sprite: this.grounded('ob-crate', x + 58, 0.42, 0.85), kind, w: 50, h: 46, lift: 0 });
         }
         this.clearCoins();
     }
@@ -325,7 +475,7 @@ export class KartDeploy extends ArcadeScene {
      */
     private safeLift(x: number, lift: number) {
         for (const thing of this.things) {
-            if (thing.kind !== 'block' && thing.kind !== 'rack' && thing.kind !== 'drone') continue;
+            if (thing.kind !== 'block' && thing.kind !== 'rack' && thing.kind !== 'drone' && thing.kind !== 'cone') continue;
             if (Math.abs(thing.sprite.x - x) > thing.w / 2 + 34) continue;
             if (thing.kind === 'drone') {
                 const center = thing.lift + thing.h / 2;
@@ -350,8 +500,8 @@ export class KartDeploy extends ArcadeScene {
             if (pattern === 1) lift = 60 + Math.sin((i / (count - 1)) * Math.PI) * 120;
             if (pattern === 2) lift = 170;
             const x = WIDTH + 40 + i * 46;
-            const coin = this.add.image(x, 0, 'commit').setDepth(35);
-            this.tweens.add({ targets: coin, scaleX: { from: 1, to: 0.3 }, duration: 380, yoyo: true, repeat: -1, delay: i * 60 });
+            const coin = this.add.image(x, 0, 'commit').setScale(COIN_SCALE).setDepth(35);
+            this.tweens.add({ targets: coin, scaleX: { from: COIN_SCALE, to: COIN_SCALE * 0.25 }, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 60 });
             this.placeCoin(this.track({ sprite: coin, kind: 'coin', w: 30, h: 30, lift: 0 }), this.safeLift(x, lift));
         }
     }
@@ -393,6 +543,7 @@ export class KartDeploy extends ArcadeScene {
         if (this.elapsed < this.turboUntil) {
             sfx.hit(0.8);
             this.burst(thing.sprite.x, GROUND - thing.lift - thing.h / 2, COLORS.red, 16, 300);
+            this.ring(thing.sprite.x, GROUND - thing.lift - thing.h / 2, COLORS.yellow, 70);
             this.addScore(25, thing.sprite.x, GROUND - thing.lift - thing.h - 10);
             this.remove(thing);
             return;
@@ -404,12 +555,17 @@ export class KartDeploy extends ArcadeScene {
             sfx.shield();
             this.cameras.main.flash(200, 52, 211, 153);
             this.burst(this.kart.x, this.y - 40, COLORS.green, 26, 320);
+            this.ring(this.kart.x, this.y - 30, COLORS.green, 110);
             this.remove(thing);
             return;
         }
 
         sfx.explode();
+        this.hitStop(90);
         this.dust.stop();
+        this.flame.stop();
+        this.kart.stop();
+        this.ring(this.kart.x, this.y - 30, COLORS.red, 130, 6);
         this.lines.emitting = false;
         this.burst(this.kart.x, this.y - 40, COLORS.red, 30, 420);
         this.burst(this.kart.x, this.y - 40, 0x5a5a62, 16, 300, 'ui-square');
@@ -433,6 +589,31 @@ export class KartDeploy extends ArcadeScene {
         };
     }
 
+    /** Troca de etapa: o céu funde, e sol e silhuetas mudam de tom. */
+    private changeScenery(index: number) {
+        const stage = STAGES[index]!;
+        const before = STAGES[index - 1]!;
+        this.skies[index]!.setDepth(-1 + index * 0.001);
+        this.tweens.add({ targets: this.skies[index], alpha: 1, duration: 1400 });
+        const mix = (from: number, to: number, t: number) => {
+            const a = Phaser.Display.Color.ValueToColor(from);
+            const b = Phaser.Display.Color.ValueToColor(to);
+            const c = Phaser.Display.Color.Interpolate.ColorWithColor(a, b, 100, t * 100);
+            return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
+        };
+        this.tweens.addCounter({
+            from: 0,
+            to: 1,
+            duration: 1400,
+            onUpdate: (tween) => {
+                const t = tween.getValue() ?? 0;
+                this.sun.setTint(mix(before.sun, stage.sun, t));
+                this.layers[0]!.setTint(mix(before.far, stage.far, t));
+                this.layers[1]!.setTint(mix(before.mid, stage.mid, t));
+            },
+        });
+    }
+
     /* ---------- Quadro a quadro ---------- */
 
     protected step(time: number, delta: number) {
@@ -452,17 +633,7 @@ export class KartDeploy extends ArcadeScene {
             this.stage++;
             sfx.levelUp();
             this.banner(nextStage.name, nextStage.sub);
-            this.tweens.addCounter({
-                from: 0,
-                to: 1,
-                duration: 1200,
-                onUpdate: (tw) => {
-                    const from = Phaser.Display.Color.ValueToColor(STAGES[this.stage - 1]!.sky);
-                    const to = Phaser.Display.Color.ValueToColor(nextStage.sky);
-                    const mix = Phaser.Display.Color.Interpolate.ColorWithColor(from, to, 100, (tw.getValue() ?? 0) * 100);
-                    this.sky.setFillStyle(Phaser.Display.Color.GetColor(mix.r, mix.g, mix.b));
-                },
-            });
+            this.changeScenery(this.stage);
         }
 
         // Pulo com buffer e coyote time.
@@ -488,20 +659,31 @@ export class KartDeploy extends ArcadeScene {
             this.onGround = false;
         }
 
-        const s = 124 / this.kart.width;
         const duck = this.ducking && this.onGround;
-        this.kart.setScale(duck ? s * 1.12 : s, duck ? s * 0.6 : this.kart.scaleY);
-        if (!duck && this.kart.scaleY < s * 0.79) this.kart.scaleY = s;
+        this.kart.setScale(duck ? KART_SCALE * 1.1 : KART_SCALE, duck ? KART_SCALE * 0.66 : this.kart.scaleY);
+        if (!duck && this.kart.scaleY < KART_SCALE * 0.79) this.kart.scaleY = KART_SCALE;
         this.kart.y = this.y;
-        this.kart.setAlpha(turbo ? 0.75 + Math.sin(time / 40) * 0.25 : 1);
-        this.shieldRing.setPosition(this.kart.x, this.y - (duck ? 26 : 46));
-        this.dust.setPosition(this.kart.x - 46, GROUND - 4);
+        // O bico acompanha o pulo: sobe ao subir, desce ao cair.
+        if (!this.onGround && !this.tweens.isTweening(this.kart)) this.kart.angle = Phaser.Math.Clamp(this.vy / 60, -14, 12);
+        else if (this.onGround && !this.tweens.isTweening(this.kart)) this.kart.angle = Math.sin(time / 50) * 0.5;
+        this.kart.setAlpha(turbo ? 0.8 + Math.sin(time / 40) * 0.2 : 1);
+        this.kart.anims.timeScale = this.speed / 400;
+
+        const height = GROUND - this.y;
+        this.kartShadow.setScale(Math.max(0.35, 1 - height / 260)).setAlpha(Math.max(0.25, 1 - height / 220));
+        this.shieldRing.setPosition(this.kart.x, this.y - (duck ? 16 : 28));
+        this.dust.setPosition(this.kart.x - 36, GROUND - 2);
         this.dust.emitting = this.onGround;
+        this.flame.setPosition(this.kart.x - 49, this.y - 22 + (duck ? 6 : 0));
+        this.flame.frequency = turbo ? 8 : 26;
 
         // Cenário.
-        this.layers[0]!.tilePositionX += this.speed * dt * 0.12;
-        this.layers[1]!.tilePositionX += this.speed * dt * 0.32;
-        this.road.tilePositionX += this.speed * dt;
+        const scroll = this.speed * dt;
+        this.clouds.tilePositionX += scroll * 0.02;
+        this.layers[0]!.tilePositionX += scroll * 0.05;
+        this.layers[1]!.tilePositionX += scroll * 0.14;
+        this.layers[2]!.tilePositionX += scroll * 0.55;
+        this.road.tilePositionX += scroll;
 
         // Novos objetos, com espaço mínimo que dê para reagir.
         if (time > this.nextObstacleAt) {
@@ -519,8 +701,8 @@ export class KartDeploy extends ArcadeScene {
         }
 
         // Movimento e colisões.
-        const kartH = duck ? 30 : 60;
-        const kart = new Phaser.Geom.Rectangle(this.kart.x - 40, this.y - kartH, 80, kartH - 4);
+        const kartH = duck ? 26 : 46;
+        const kart = new Phaser.Geom.Rectangle(this.kart.x - 34, this.y - kartH, 68, kartH - 3);
         const magnet = time < this.magnetUntil;
         for (const thing of [...this.things]) {
             thing.sprite.x -= this.speed * dt;

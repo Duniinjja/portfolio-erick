@@ -1,6 +1,14 @@
 import Phaser from 'phaser';
 import { ArcadeScene, COLORS, HEIGHT, SANS, WIDTH } from './ArcadeScene';
 import { sfx } from './sfx';
+import rackUrl from '../assets/games/rack.webp';
+import musicUrl from '../assets/games/musica/bug.mp3';
+import redUrl from '../assets/games/bug-red.webp';
+import purpleUrl from '../assets/games/bug-purple.webp';
+import greenUrl from '../assets/games/bug-green.webp';
+import orangeUrl from '../assets/games/bug-orange.webp';
+import goldUrl from '../assets/games/bug-gold.webp';
+import bossUrl from '../assets/games/bug-boss.webp';
 
 const CODE = [
     'const lead = await crm.qualify(message);',
@@ -41,6 +49,28 @@ const SPLASH: Record<BugKind, number> = {
 };
 
 const PROD_X = 100;
+const SPRITES = { 'bug-red': redUrl, 'bug-purple': purpleUrl, 'bug-green': greenUrl, 'bug-orange': orangeUrl, 'bug-gold': goldUrl, 'bug-boss': bossUrl };
+/** Os sprites 3D são maiores que a tela: ficam nítidos na resolução real. */
+const BUG_SCALE = 0.72;
+const MONO = 'Consolas, Menlo, monospace';
+
+/** Cores de cada pedaço de código no editor. */
+const SYNTAX = { keyword: '#c084fc', name: '#e4e4e7', text: '#86efac', fn: '#fcd34d', number: '#fb923c', plain: '#9ca3af' };
+
+const tokenColor = (word: string) => {
+    if (/^(const|await|if|return|for|export|of|res|cron)$/.test(word)) return SYNTAX.keyword;
+    if (/^["'`]/.test(word)) return SYNTAX.text;
+    if (/^\d/.test(word)) return SYNTAX.number;
+    if (/^[a-zA-Z_]+\($/.test(word) || /\($/.test(word)) return SYNTAX.fn;
+    return /^[a-zA-Z]/.test(word) ? SYNTAX.name : SYNTAX.plain;
+};
+
+/** Dificuldade: velocidade, intervalo entre bugs, vidas e resistência do chefão. */
+const DIFFICULTY = [
+    { speed: 0.8, spawn: 1.3, lives: 5, boss: 0.75 },
+    { speed: 1, spawn: 1, lives: 3, boss: 1 },
+    { speed: 1.3, spawn: 0.72, lives: 2, boss: 1.35 },
+];
 
 /**
  * Caça-Bugs: bugs atravessam o editor rumo à produção. Cada tipo se comporta
@@ -51,6 +81,12 @@ export class BugHunt extends ArcadeScene {
     readonly title = 'Caça-Bugs';
     readonly hint = 'Clique ou toque nos bugs antes que cheguem à produção. Acertos seguidos multiplicam os pontos; errar o clique quebra o combo. A cada 4 sprints aparece o Bug de Produção.';
     readonly medals: [number, number, number] = [1500, 4000, 9000];
+    protected music = musicUrl;
+    protected levels = [
+        { name: 'Júnior', text: '5 vidas e bugs mais lentos' },
+        { name: 'Pleno', text: '3 vidas · pontos x1,5' },
+        { name: 'Sênior', text: '2 vidas, bugs rápidos · pontos x2' },
+    ];
 
     private bugs: Phaser.GameObjects.Image[] = [];
     private powers: Phaser.GameObjects.Image[] = [];
@@ -72,6 +108,11 @@ export class BugHunt extends ArcadeScene {
     private comboText!: Phaser.GameObjects.Text;
     private sprintText!: Phaser.GameObjects.Text;
     private reticle?: Phaser.GameObjects.Container;
+    private comboBar!: Phaser.GameObjects.Graphics;
+    private frost!: Phaser.GameObjects.Rectangle;
+    private slowTint!: Phaser.GameObjects.Rectangle;
+    private scan!: Phaser.GameObjects.Rectangle;
+    private trail!: Phaser.GameObjects.Particles.ParticleEmitter;
 
     constructor() {
         super('bug-hunt');
@@ -81,49 +122,39 @@ export class BugHunt extends ArcadeScene {
         return 10 + this.sprint * 4;
     }
 
+    private get tuning() {
+        return DIFFICULTY[this.level]!;
+    }
+
     private get isBossSprint() {
         return this.sprint % 4 === 0;
     }
 
     protected build() {
         this.makeTextures();
-        Object.assign(this, { bugs: [], powers: [], boss: undefined, lives: 3, combo: 0, bestCombo: 0, hits: 0, shots: 0, kills: 0, sprint: 1, sprintKills: 0, slowUntil: 0, freezeUntil: 0 });
+        Object.assign(this, { bugs: [], powers: [], boss: undefined, combo: 0, bestCombo: 0, hits: 0, shots: 0, kills: 0, sprint: 1, sprintKills: 0, slowUntil: 0, freezeUntil: 0 });
 
         this.legend = [
-            { key: 'bug-red', label: 'Bug: 1 clique' },
-            { key: 'bug-purple', label: 'Segfault: rápido' },
-            { key: 'bug-green', label: 'Memory leak: 3 cliques', scale: 1.2 },
-            { key: 'bug-orange', label: 'Race condition: se divide' },
-            { key: 'bug-gold', label: 'Dourado: câmera lenta' },
+            { key: 'bug-red', label: 'Bug: 1 clique', scale: BUG_SCALE },
+            { key: 'bug-purple', label: 'Segfault: rápido', scale: BUG_SCALE },
+            { key: 'bug-green', label: 'Memory leak: 3 cliques', scale: BUG_SCALE * 1.2 },
+            { key: 'bug-orange', label: 'Race condition: se divide', scale: BUG_SCALE },
+            { key: 'bug-gold', label: 'Dourado: câmera lenta', scale: BUG_SCALE },
             { key: 'pu-hotfix', label: 'Poderes: clique para pegar' },
         ];
 
-        // Editor de código.
-        this.add.rectangle(0, 0, WIDTH, HEIGHT, COLORS.dark).setOrigin(0);
-        this.add.rectangle(PROD_X, 0, 62, HEIGHT, 0x101013).setOrigin(0);
-        for (let i = 0; i < 17; i++) {
-            const y = 70 + i * 27;
-            this.add.text(PROD_X + 48, y, String(i + 1), { fontFamily: 'Consolas, monospace', fontSize: '13px', color: '#45454d' }).setOrigin(1, 0);
-            this.add.text(PROD_X + 82, y, CODE[(i * 5) % CODE.length]!, { fontFamily: 'Consolas, monospace', fontSize: '15px', color: i % 3 ? '#55555f' : '#7a6a2a' });
-        }
+        this.drawEditor();
+        this.drawProduction();
 
-        // Produção: servidores à esquerda.
-        this.add.rectangle(0, 0, PROD_X, HEIGHT, 0x1a0f10).setOrigin(0);
-        const glow = this.add.rectangle(PROD_X - 4, 0, 6, HEIGHT, COLORS.red, 0.6).setOrigin(0);
-        this.tweens.add({ targets: glow, alpha: 0.15, duration: 700, yoyo: true, repeat: -1 });
-        for (let i = 0; i < 6; i++) {
-            const y = 80 + i * 72;
-            this.add.rectangle(18, y, 64, 52, 0x2a1a1c).setOrigin(0);
-            for (let j = 0; j < 3; j++) {
-                const led = this.add.rectangle(28 + j * 14, y + 40, 6, 4, COLORS.green);
-                this.tweens.add({ targets: led, alpha: 0.2, duration: Phaser.Math.Between(300, 900), yoyo: true, repeat: -1 });
-            }
-        }
-        this.add.text(PROD_X / 2, HEIGHT - 22, 'PRODUÇÃO', { fontFamily: SANS, fontSize: '11px', fontStyle: '800', color: '#ff8a8a' }).setOrigin(0.5);
+        this.trail = this.add.particles(0, 0, 'ui-dot', { lifespan: 420, scale: { start: 0.35, end: 0 }, alpha: { start: 0.35, end: 0 }, emitting: false }).setDepth(15);
+        this.frost = this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x7dd3fc, 0.1).setOrigin(0).setDepth(50).setVisible(false);
+        this.slowTint = this.add.rectangle(0, 0, WIDTH, HEIGHT, COLORS.yellow, 0.07).setOrigin(0).setDepth(50).setVisible(false);
 
-        this.setLives = this.lifeRow(3, 5);
-        this.comboText = this.add.text(WIDTH / 2, 58, '', { fontFamily: SANS, fontSize: '15px', fontStyle: '800', color: '#f2c200', stroke: '#0a0a0b', strokeThickness: 4 }).setOrigin(0.5).setDepth(80);
-        this.sprintText = this.add.text(WIDTH - 24, 44, 'SPRINT 1', { fontFamily: SANS, fontSize: '13px', fontStyle: '800', color: '#a3a3ab' }).setOrigin(1, 0).setDepth(80);
+        this.lives = this.tuning.lives;
+        this.setLives = this.lifeRow(this.lives, 5);
+        this.comboBar = this.add.graphics().setDepth(80);
+        this.comboText = this.add.text(WIDTH / 2, 58, '', { fontFamily: SANS, fontSize: '14px', fontStyle: '400', color: '#f2c200' }).setOrigin(0.5).setDepth(80);
+        this.sprintText = this.add.text(WIDTH - 24, 42, 'SPRINT 1', { fontFamily: SANS, fontSize: '13px', fontStyle: '400', color: '#8d8c86' }).setOrigin(1, 0).setDepth(80);
 
         // Mira própria no mouse; no toque, o dedo é a mira.
         if (!this.sys.game.device.input.touch) {
@@ -133,38 +164,99 @@ export class BugHunt extends ArcadeScene {
             const lines = this.add.graphics().lineStyle(2, COLORS.yellow);
             lines.lineBetween(-28, 0, -12, 0).lineBetween(12, 0, 28, 0).lineBetween(0, -28, 0, -12).lineBetween(0, 12, 0, 28);
             this.reticle = this.add.container(WIDTH / 2, HEIGHT / 2, [ring, dot, lines]).setDepth(200);
-            this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.reticle?.setPosition(p.x, p.y));
+            this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.reticle?.setPosition(p.worldX, p.worldY));
         }
 
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => this.shoot(pointer, over));
     }
 
-    private makeTextures() {
-        if (this.textures.exists('bug-red')) return;
+    preload() {
+        if (this.textures.exists('rack3d')) return;
+        this.load.image('rack3d', rackUrl);
+        for (const [key, url] of Object.entries(SPRITES)) this.load.spritesheet(key, url, { frameWidth: 140, frameHeight: 112 });
+    }
 
-        // Besouro olhando para a direita: patas e antenas claras para aparecer no fundo escuro.
-        const bug = (key: string, shell: number, dark: number, eye = 0xffffff) => {
-            const g = this.add.graphics();
-            g.lineStyle(4, 0x9a9aa3);
-            [16, 26, 36].forEach((x, i) => {
-                g.lineBetween(x, 18, x - 6 + i * 2, 4).lineBetween(x - 6 + i * 2, 4, x - 12 + i * 2, 2);
-                g.lineBetween(x, 38, x - 6 + i * 2, 52).lineBetween(x - 6 + i * 2, 52, x - 12 + i * 2, 54);
-            });
-            g.lineStyle(3, 0x9a9aa3).lineBetween(56, 22, 66, 10).lineBetween(56, 34, 66, 46);
-            g.fillStyle(0x3a3a42).fillCircle(52, 28, 11);
-            g.fillStyle(shell).fillEllipse(28, 28, 44, 34);
-            g.fillStyle(0xffffff, 0.25).fillEllipse(22, 20, 16, 8);
-            g.fillStyle(dark).fillRect(27, 12, 3, 32).fillCircle(18, 22, 4).fillCircle(36, 34, 4).fillCircle(38, 20, 3);
-            g.fillStyle(eye).fillCircle(56, 23, 3).fillCircle(56, 33, 3);
-            g.generateTexture(key, 70, 56);
-            g.destroy();
-        };
-        bug('bug-red', COLORS.red, 0x8f2626);
-        bug('bug-purple', COLORS.purple, 0x5b3fa8);
-        bug('bug-green', COLORS.green, 0x1d7a5a);
-        bug('bug-orange', COLORS.orange, 0x9a4a12);
-        bug('bug-gold', COLORS.yellow, 0x8a6e04);
-        bug('bug-boss', 0x7a1020, 0x2a0508, COLORS.yellow);
+    /** O editor de código: abas, gutter, código colorido, minimapa e barra de status. */
+    private drawEditor() {
+        const left = PROD_X + 6;
+        const back = this.add.graphics();
+        back.fillGradientStyle(0x14141c, 0x14141c, 0x0d0d13, 0x0d0d13, 1).fillRect(0, 0, WIDTH, HEIGHT);
+        back.fillStyle(0x0d0d12).fillRect(left, 0, 44, HEIGHT);
+        back.fillStyle(0x0e0e13).fillRect(WIDTH - 64, 66, 64, HEIGHT - 90);
+        back.fillStyle(0x191922).fillRect(left, 42, WIDTH - left, 24);
+
+        ['funil.ts', 'caixa.py', 'deploy.yml'].forEach((name, i) => {
+            const x = left + 46 + i * 112;
+            if (!i) this.add.rectangle(x, 42, 108, 24, 0x14141c).setOrigin(0);
+            if (!i) this.add.rectangle(x, 42, 108, 1, COLORS.yellow).setOrigin(0);
+            this.add.text(x + 14, 47, name, { fontFamily: MONO, fontSize: '12px', color: i ? '#6b7280' : '#e4e4e7' });
+        });
+
+        for (let i = 0; i < 16; i++) {
+            const y = 76 + i * 27;
+            this.add.text(left + 34, y, String(i + 1), { fontFamily: MONO, fontSize: '13px', color: '#3f3f4a' }).setOrigin(1, 0);
+            const indent = i % 4 === 1 || i % 4 === 2 ? 28 : 0;
+            let x = left + 62 + indent;
+            for (const word of CODE[(i * 5) % CODE.length]!.split(/(?<=\()|(?=[ .;,)])/)) {
+                const token = this.add.text(x, y, word, { fontFamily: MONO, fontSize: '15px', color: tokenColor(word.trim()) }).setAlpha(0.3);
+                x += token.width;
+            }
+            // Minimapa: o mesmo código, em barrinhas.
+            const size = CODE[(i * 5) % CODE.length]!.length;
+            for (let row = 0; row < 3; row++) {
+                back.fillStyle(row === 1 ? 0x4b4b5a : 0x2c2c38, 0.9).fillRect(WIDTH - 58 + indent / 6, 72 + i * 27 + row * 5, Math.min(48, size * (0.9 - row * 0.15)), 2);
+            }
+        }
+
+        // Linha do cursor: varre o código devagar.
+        this.scan = this.add.rectangle(left + 44, 76, WIDTH - left - 108, 24, 0xffffff, 0.035).setOrigin(0);
+        this.tweens.add({ targets: this.scan, y: 76 + 15 * 27, duration: 9000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+
+        back.fillStyle(0x17171e).fillRect(left, HEIGHT - 22, WIDTH - left, 22);
+        this.add.text(left + 12, HEIGHT - 18, 'main  ·  TypeScript  ·  UTF-8', { fontFamily: MONO, fontSize: '12px', color: '#8d8c86' });
+    }
+
+    /** A produção: racks de verdade atrás de um firewall que pulsa. */
+    private drawProduction() {
+        const back = this.add.graphics();
+        back.fillGradientStyle(0x2a0d12, 0x12060a, 0x2a0d12, 0x12060a, 1).fillRect(0, 0, PROD_X, HEIGHT);
+        for (let i = 0; i < 2; i++) {
+            const rack = this.add.image(PROD_X / 2 - 2, 150 + i * 232, 'rack3d').setDisplaySize(86, 172);
+            rack.setTint(0xffd0d0);
+        }
+        for (let i = 0; i < 14; i++) {
+            const led = this.add.rectangle(Phaser.Math.Between(66, 78), 70 + i * 32, 4, 3, i % 4 ? COLORS.green : COLORS.red).setDepth(2);
+            this.tweens.add({ targets: led, alpha: 0.2, duration: Phaser.Math.Between(240, 900), yoyo: true, repeat: -1 });
+        }
+        const wall = this.add.rectangle(PROD_X - 3, 0, 8, HEIGHT, COLORS.red, 0.85).setOrigin(0.5, 0);
+        const haze = this.add.rectangle(PROD_X + 14, 0, 30, HEIGHT, COLORS.red, 0.09).setOrigin(0.5, 0);
+        this.tweens.add({ targets: [wall, haze], alpha: { from: 1, to: 0.35 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        this.add.text(PROD_X / 2, HEIGHT - 16, 'PRODUÇÃO', { fontFamily: SANS, fontSize: '11px', fontStyle: '400', color: '#ff8a8a' }).setOrigin(0.5);
+    }
+
+    /** Mancha que o bug deixa no código ao ser esmagado. */
+    private splat(x: number, y: number, color: number) {
+        const g = this.add.graphics({ x, y }).setDepth(10);
+        g.fillStyle(color, 0.5).fillCircle(0, 0, 16);
+        for (let i = 0; i < 7; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const far = Phaser.Math.Between(18, 36);
+            g.fillCircle(Math.cos(angle) * far, Math.sin(angle) * far, Phaser.Math.Between(2, 6));
+        }
+        this.tweens.add({ targets: g, alpha: 0, delay: 1300, duration: 900, onComplete: () => g.destroy() });
+    }
+
+    /** Pedaços de sintaxe voando: o bug era código. */
+    private glyphs(x: number, y: number, color: number) {
+        for (const ch of Phaser.Utils.Array.Shuffle(['{', '}', ';', '(', ')', '=>', '//', '!=']).slice(0, 5)) {
+            const label = this.add.text(x, y, ch, { fontFamily: MONO, fontSize: '16px', fontStyle: '700', color: `#${color.toString(16).padStart(6, '0')}` }).setOrigin(0.5).setDepth(59);
+            const angle = Math.random() * Math.PI * 2;
+            this.tweens.add({ targets: label, x: x + Math.cos(angle) * 90, y: y + Math.sin(angle) * 70, angle: Phaser.Math.Between(-180, 180), alpha: 0, duration: 620, ease: 'Cubic.Out', onComplete: () => label.destroy() });
+        }
+    }
+
+    private makeTextures() {
+        if (this.textures.exists('pu-hotfix')) return;
 
         const power = (key: string, color: number, glyph: (g: Phaser.GameObjects.Graphics) => void) => {
             const g = this.add.graphics();
@@ -197,11 +289,11 @@ export class BugHunt extends ArcadeScene {
     private spawnBug(kind: BugKind, x = WIDTH + 40, y = Phaser.Math.Between(90, HEIGHT - 40)) {
         const def = KINDS[kind];
         const bug = this.add.image(x, y, def.texture).setFlipX(true).setDepth(20);
-        bug.setInteractive(new Phaser.Geom.Circle(35, 28, def.radius), Phaser.Geom.Circle.Contains);
-        const level = 1 + (this.sprint - 1) * 0.12;
-        bug.setData({ kind, hp: def.hp, vy: Phaser.Math.FloatBetween(-35, 35), speed: 72 * def.speed * level * Phaser.Math.FloatBetween(0.9, 1.15), seed: Math.random() * 10, boss: false });
+        bug.setInteractive(new Phaser.Geom.Circle(70, 56, def.radius * 1.5), Phaser.Geom.Circle.Contains);
+        const level = (1 + (this.sprint - 1) * 0.12) * this.tuning.speed;
+        bug.setData({ kind, hp: def.hp, base: def.scale, vy: Phaser.Math.FloatBetween(-35, 35), speed: 72 * def.speed * level * Phaser.Math.FloatBetween(0.9, 1.15), seed: Math.random() * 10, boss: false });
         bug.setScale(0);
-        this.tweens.add({ targets: bug, scale: def.scale, duration: 260, ease: 'Back.Out' });
+        this.tweens.add({ targets: bug, scale: def.scale * BUG_SCALE, duration: 260, ease: 'Back.Out' });
         this.bugs.push(bug);
         return bug;
     }
@@ -218,7 +310,8 @@ export class BugHunt extends ArcadeScene {
 
     private shoot(pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) {
         if (this.phase !== 'playing') return;
-        this.tweens.add({ targets: this.reticle, scale: { from: 0.7, to: 1 }, duration: 120 });
+        this.tweens.add({ targets: this.reticle, scale: { from: 0.7, to: 1 }, angle: { from: 45, to: 0 }, duration: 160 });
+        this.ring(pointer.worldX, pointer.worldY, COLORS.yellow, 26, 1.5);
         const target = over[0] as Phaser.GameObjects.Image | undefined;
         this.shots++;
 
@@ -230,7 +323,7 @@ export class BugHunt extends ArcadeScene {
             this.hitBug(target);
         } else {
             sfx.miss();
-            if (this.combo > 2) this.popText(pointer.x, pointer.y, 'combo perdido', COLORS.muted, 14);
+            if (this.combo > 2) this.popText(pointer.worldX, pointer.worldY, 'combo perdido', COLORS.muted, 14);
             this.combo = 0;
             this.comboText.setText('');
         }
@@ -274,8 +367,14 @@ export class BugHunt extends ArcadeScene {
         if (multiplier > 1) this.tweens.add({ targets: this.comboText, scale: { from: 1.4, to: 1 }, duration: 200 });
 
         sfx.squash(this.combo);
-        this.burst(bug.x, bug.y, SPLASH[kind], 16);
+        this.burst(bug.x, bug.y, SPLASH[kind], 20, 300);
         this.burst(bug.x, bug.y, 0xffffff, 6, 120, 'ui-square');
+        this.ring(bug.x, bug.y, SPLASH[kind], 60 + Math.min(this.combo, 12) * 4);
+        this.splat(bug.x, bug.y, SPLASH[kind]);
+        this.glyphs(bug.x, bug.y, SPLASH[kind]);
+        this.hitStop(26);
+        this.cameras.main.shake(70, 0.002);
+        if (multiplier > 1) this.punch(1 + multiplier * 0.006);
         this.removeBug(bug, true);
         this.kills++;
         if (!this.isBossSprint || kind !== 'mini') this.sprintKills++;
@@ -312,6 +411,7 @@ export class BugHunt extends ArcadeScene {
         sfx.hurt();
         this.cameras.main.shake(200, 0.01);
         this.cameras.main.flash(180, 255, 60, 60);
+        this.ring(PROD_X, HEIGHT / 2, COLORS.red, 260, 8);
         if (this.lives <= 0) {
             this.updateStats();
             this.endGame();
@@ -336,9 +436,9 @@ export class BugHunt extends ArcadeScene {
     private spawnBoss() {
         sfx.boss();
         this.banner('Bug de Produção!', 'Derrube o chefão antes que ele chegue ao servidor', COLORS.red);
-        const hp = 26 + this.sprint * 5;
-        const boss = this.add.image(WIDTH + 140, HEIGHT / 2, 'bug-boss').setFlipX(true).setScale(3.2).setDepth(25);
-        boss.setInteractive(new Phaser.Geom.Circle(35, 28, 28), Phaser.Geom.Circle.Contains);
+        const hp = Math.round((26 + this.sprint * 5) * this.tuning.boss);
+        const boss = this.add.image(WIDTH + 140, HEIGHT / 2, 'bug-boss').setFlipX(true).setScale(3.2 * BUG_SCALE).setDepth(25);
+        boss.setInteractive(new Phaser.Geom.Circle(70, 56, 56), Phaser.Geom.Circle.Contains);
         boss.setData({ kind: 'bug', hp, maxHp: hp, spawnAt: 0 });
         this.boss = boss;
         this.bossBar = this.add.graphics().setDepth(85);
@@ -350,8 +450,9 @@ export class BugHunt extends ArcadeScene {
         if (!this.boss || !this.bossBar) return;
         const ratio = Math.max(0, this.boss.getData('hp') / this.boss.getData('maxHp'));
         this.bossBar.clear();
-        this.bossBar.fillStyle(0x000000, 0.7).fillRect(WIDTH / 2 - 200, 80, 400, 14);
-        this.bossBar.fillStyle(COLORS.red).fillRect(WIDTH / 2 - 198, 82, 396 * ratio, 10);
+        this.bossBar.fillStyle(0x000000, 0.75).fillRect(WIDTH / 2 - 202, 78, 404, 16);
+        this.bossBar.fillStyle(0x4a0f14).fillRect(WIDTH / 2 - 199, 81, 398, 10);
+        this.bossBar.fillStyle(ratio < 0.3 ? COLORS.yellow : COLORS.red).fillRect(WIDTH / 2 - 199, 81, 398 * ratio, 10);
     }
 
     private killBoss() {
@@ -361,6 +462,7 @@ export class BugHunt extends ArcadeScene {
         sfx.explode();
         this.cameras.main.shake(500, 0.02);
         this.cameras.main.flash(300, 242, 194, 0);
+        for (let i = 0; i < 4; i++) this.time.delayedCall(i * 110, () => this.ring(boss.x, boss.y, i % 2 ? COLORS.yellow : COLORS.red, 200 + i * 70, 6));
         for (let i = 0; i < 5; i++) {
             this.time.delayedCall(i * 90, () => this.burst(boss.x + Phaser.Math.Between(-60, 60), boss.y + Phaser.Math.Between(-50, 50), i % 2 ? COLORS.yellow : COLORS.red, 24, 360));
         }
@@ -392,6 +494,8 @@ export class BugHunt extends ArcadeScene {
             this.banner('Hotfix!', 'Todos os bugs da tela foram corrigidos', COLORS.red);
             sfx.explode();
             this.cameras.main.flash(250, 255, 255, 255);
+            const sweep = this.add.rectangle(PROD_X, 0, 26, HEIGHT, 0xffffff, 0.8).setOrigin(0.5, 0).setDepth(56);
+            this.tweens.add({ targets: sweep, x: WIDTH + 40, duration: 420, ease: 'Cubic.In', onComplete: () => sweep.destroy() });
             [...this.bugs].forEach((bug, i) => this.time.delayedCall(i * 40, () => bug.active && this.killBug(bug, true)));
             if (this.boss) {
                 this.boss.setData('hp', Math.max(1, this.boss.getData('hp') - 8));
@@ -422,10 +526,12 @@ export class BugHunt extends ArcadeScene {
         const frozen = time < this.freezeUntil;
         const slow = time < this.slowUntil ? 0.4 : 1;
         const dt = (delta / 1000) * (frozen ? 0 : slow);
+        this.frost.setVisible(frozen);
+        this.slowTint.setVisible(slow < 1 && !frozen);
 
         if (!this.isBossSprint && time > this.nextSpawn) {
             this.spawnBug(this.pickKind());
-            this.nextSpawn = time + Math.max(330, 1150 - this.sprint * 70) * Phaser.Math.FloatBetween(0.7, 1.2);
+            this.nextSpawn = time + Math.max(330, 1150 - this.sprint * 70) * this.tuning.spawn * Phaser.Math.FloatBetween(0.7, 1.2);
         }
 
         for (const bug of [...this.bugs]) {
@@ -439,6 +545,10 @@ export class BugHunt extends ArcadeScene {
             bug.x -= bug.getData('speed') * dt;
             const wobble = kind === 'fast' ? Math.sin(time / 90 + bug.getData('seed')) * 220 : Math.sin(time / 140 + bug.getData('seed')) * 30;
             bug.y += (bug.getData('vy') + wobble) * dt;
+            // Andar: o corpo balança, e o rastro fica para trás.
+            bug.rotation = Math.sin(time / 60 + bug.getData('seed')) * 0.06 * (frozen ? 0 : 1);
+            if (!frozen) bug.setFrame(Math.floor(time / 90 + bug.getData('seed')) % 2);
+            if (!frozen && Math.random() < 0.2) this.trail.emitParticleAt(bug.x + 20, bug.y, 1);
             if (bug.y < 84 || bug.y > HEIGHT - 30) {
                 bug.setData('vy', -bug.getData('vy'));
                 bug.y = Phaser.Math.Clamp(bug.y, 84, HEIGHT - 30);
@@ -481,6 +591,14 @@ export class BugHunt extends ArcadeScene {
                 Phaser.Utils.Array.Remove(this.powers, icon);
                 icon.destroy();
             }
+        }
+
+        // Barra do combo: esvazia até o próximo acerto.
+        this.comboBar.clear();
+        if (this.combo >= 2) {
+            const left = Math.max(0, 1 - (time - this.lastHit) / 1200);
+            this.comboBar.fillStyle(0x000000, 0.6).fillRect(WIDTH / 2 - 70, 70, 140, 4);
+            this.comboBar.fillStyle(COLORS.yellow).fillRect(WIDTH / 2 - 70, 70, 140 * left, 4);
         }
 
         this.updateStats();
