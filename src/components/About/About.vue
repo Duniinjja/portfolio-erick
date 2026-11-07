@@ -64,13 +64,13 @@ onMounted(() => {
                     </p>
                     <p data-reveal>
                         Comecei na análise de dados, no financeiro da DOW Chemical, automatizando rotinas com Python e Excel.
-                        Hoje, no <strong>Grupo UOP</strong>, desenvolvo as plataformas da operação: um CRM com WhatsApp e IA
+                        Hoje, na <strong>Wertice Educação e Tecnologia</strong>, desenvolvo as plataformas da operação: um CRM com WhatsApp e IA
                         generativa, um SaaS financeiro multiempresa, APIs com dados oficiais e plataformas de ensino. Foram mais
                         de <strong>7.800 contribuições no GitHub</strong> no último ano.
                     </p>
                     <p data-reveal>
                         Também sou fundador da <a href="#woltek">Woltek</a>, meu estúdio de engenharia de software, com
-                        mais de 35 clientes ativos e três produtos SaaS próprios em produção.
+                        três produtos SaaS próprios em produção que, juntos, atendem mais de 35 clientes.
                     </p>
                     <p data-reveal>
                         A base em dados continua comigo: antes de escrever código, eu entendo o processo e o número que a

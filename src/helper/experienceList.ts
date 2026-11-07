@@ -29,8 +29,8 @@ const experienceList: Array<IExperienceList> = [
         description: 'Controle de documentos, otimização de processos e elaboração de relatórios e gráficos analíticos para apoio à tomada de decisões, utilizando Power BI, Excel, VBA e Python.'
     },
     {
-        companyImage: 'grupouop.jpg',
-        companyName: 'Grupo UOP',
+        companyImage: 'wertice.jpg',
+        companyName: 'Wertice Educação e Tecnologia',
         startAt: '06/10/2025',
         endAt: 'Atual',
         locale: 'São Paulo/SP',

@@ -44,7 +44,7 @@ export const woltek = {
     about:
         'Fundei a Woltek, um estúdio de engenharia de software que desenha e constrói sistemas sob medida, apps e sites premium, com código feito à mão e arquitetura pensada para crescer. Atendemos empresas no Brasil inteiro, de forma remota.',
     stats: [
-        { value: 35, suffix: '+', label: 'Clientes ativos' },
+        { value: 35, suffix: '+', label: 'Clientes nos sistemas' },
         { value: 3, suffix: '', label: 'Produtos SaaS em produção' },
         { value: 24, suffix: '/7', label: 'Monitoramento dos sistemas' },
     ],
