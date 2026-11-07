@@ -160,7 +160,8 @@ onMounted(() => {
 .woltek__stats {
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     gap: 1px;
     margin-block: clamp(56px, 7vw, 88px);
     background: #2a2a2a;
@@ -309,7 +310,7 @@ onMounted(() => {
     }
 
     .woltek__stats {
-        grid-template-columns: minmax(0, 1fr);
+        grid-auto-flow: row;
     }
 
     .process__line {

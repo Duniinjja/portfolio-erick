@@ -70,7 +70,7 @@ onMounted(() => {
                     </p>
                     <p data-reveal>
                         Também sou fundador da <a href="#woltek">Woltek</a>, meu estúdio de engenharia de software, com
-                        três produtos SaaS próprios em produção que, juntos, atendem mais de 35 clientes.
+                        três produtos SaaS próprios em produção e com clientes ativos.
                     </p>
                     <p data-reveal>
                         A base em dados continua comigo: antes de escrever código, eu entendo o processo e o número que a
